@@ -37,6 +37,7 @@ AppDef {
             kind: DirectKind::AppImage,     // or DirectKind::Deb / DirectKind::TarGz
             install_name: "my-tool",        // final filename under ~/.local/bin
         }),
+        script: None,
         preference: &[InstallMethod::Direct],
     },
     post_install: &[

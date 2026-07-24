@@ -42,6 +42,7 @@ impl SystemInfo {
             InstallMethod::Aur => self.has_pacman && self.aur_helper.is_some(),
             InstallMethod::Flatpak => self.has_flatpak,
             InstallMethod::Direct => true,
+            InstallMethod::Script => true,
         }
     }
 

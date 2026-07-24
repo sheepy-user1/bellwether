@@ -12,9 +12,16 @@ fn main() -> anyhow::Result<()> {
         Some(Commands::List) => commands::list(),
         Some(Commands::Doctor) => commands::doctor(),
         Some(Commands::Scan) => commands::scan(),
-        Some(Commands::Install { ids, all }) => commands::install(&ids, all)?,
-        Some(Commands::Remove { ids, all }) => commands::remove(&ids, all)?,
-        Some(Commands::Repair { ids, all }) => commands::repair(&ids, all)?,
+        Some(Commands::Profiles) => commands::profiles(),
+        Some(Commands::Install { ids, all, profile }) => {
+            commands::install(&ids, all, profile.as_deref())?
+        }
+        Some(Commands::Remove { ids, all, profile }) => {
+            commands::remove(&ids, all, profile.as_deref())?
+        }
+        Some(Commands::Repair { ids, all, profile }) => {
+            commands::repair(&ids, all, profile.as_deref())?
+        }
         Some(Commands::Tui) | None => tui::run()?,
     }
 

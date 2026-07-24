@@ -23,6 +23,7 @@ pub const COMMUNITY_APPS: &[AppDef] = &[
             aur: None,
             flatpak: Some("io.github.aristocratos.btop"),
             direct: None,
+            script: None,
             preference: &[InstallMethod::Native, InstallMethod::Flatpak],
         },
         post_install: &[
@@ -50,6 +51,7 @@ pub const COMMUNITY_APPS: &[AppDef] = &[
             aur: None,
             flatpak: None,
             direct: None,
+            script: None,
             preference: &[InstallMethod::Native],
         },
         post_install: &[
@@ -71,6 +73,7 @@ pub const COMMUNITY_APPS: &[AppDef] = &[
             aur: None,
             flatpak: None,
             direct: None,
+            script: None,
             preference: &[InstallMethod::Native],
         },
         post_install: &[
@@ -92,6 +95,7 @@ pub const COMMUNITY_APPS: &[AppDef] = &[
             aur: Some("auto-cpufreq"),
             flatpak: None,
             direct: None,
+            script: None,
             preference: &[InstallMethod::Aur],
         },
         post_install: &[
@@ -116,6 +120,7 @@ pub const COMMUNITY_APPS: &[AppDef] = &[
             aur: Some("bambu-studio-bin"),
             flatpak: Some("com.bambulab.BambuStudio"),
             direct: None,
+            script: None,
             preference: &[InstallMethod::Flatpak, InstallMethod::Aur],
         },
         post_install: &[
@@ -139,6 +144,7 @@ pub const COMMUNITY_APPS: &[AppDef] = &[
             aur: None,
             flatpak: Some("com.valvesoftware.Steam"),
             direct: None,
+            script: None,
             preference: &[InstallMethod::Native, InstallMethod::Flatpak],
         },
         post_install: &[
@@ -161,12 +167,127 @@ pub const COMMUNITY_APPS: &[AppDef] = &[
             aur: Some("zen-browser-bin"),
             flatpak: Some("app.zen_browser.zen"),
             direct: None,
+            script: None,
             preference: &[InstallMethod::Flatpak, InstallMethod::Aur],
         },
         post_install: &[
             PostInstallStep::Note("set as default browser from within Zen's own settings, or run: xdg-settings set default-web-browser app.zen_browser.zen.desktop"),
         ],
         bin_name: Some("zen"),
+    },
+    // ---------------------------------------------------------------
+    // Server
+    // ---------------------------------------------------------------
+    AppDef {
+        id: "docker",
+        name: "Docker Engine",
+        category: Category::Server,
+        description: "Container runtime: build and run containers.",
+        install: InstallSpec {
+            apt: Some("docker.io"),
+            pacman: Some("docker"),
+            dnf: Some("docker"),
+            aur: None,
+            flatpak: None,
+            direct: None,
+            script: None,
+            preference: &[InstallMethod::Native],
+        },
+        post_install: &[
+            PostInstallStep::EnableService { unit: "docker.service", start_now: true },
+            PostInstallStep::RootShell(DOCKER_GROUP_ADD),
+            PostInstallStep::Note("log out and back in (or run 'newgrp docker') for the docker group membership to take effect — until then, docker commands need sudo"),
+        ],
+        bin_name: None,
+    },
+    AppDef {
+        id: "docker-compose",
+        name: "Docker Compose",
+        category: Category::Server,
+        description: "Define and run multi-container Docker applications from a single YAML file.",
+        install: InstallSpec {
+            apt: Some("docker-compose-plugin"),
+            pacman: Some("docker-compose"),
+            dnf: Some("docker-compose"),
+            aur: None,
+            flatpak: None,
+            direct: None,
+            script: None,
+            preference: &[InstallMethod::Native],
+        },
+        post_install: &[
+            PostInstallStep::Note("modern installs expose this as 'docker compose' (no hyphen); the old 'docker-compose' binary may not exist depending on your distro's package"),
+        ],
+        bin_name: Some("docker"),
+    },
+    AppDef {
+        id: "ufw",
+        name: "UFW (Uncomplicated Firewall)",
+        category: Category::Server,
+        description: "Simple firewall front-end for iptables/nftables — deny incoming, allow outgoing, by default.",
+        install: InstallSpec {
+            apt: Some("ufw"),
+            pacman: Some("ufw"),
+            dnf: None,
+            aur: None,
+            flatpak: None,
+            direct: None,
+            script: None,
+            preference: &[InstallMethod::Native],
+        },
+        post_install: &[
+            PostInstallStep::RootShell(UFW_SANE_DEFAULTS),
+            PostInstallStep::Note("default policy set to deny incoming / allow outgoing, then enabled. Fedora/dnf systems use firewalld instead — not available here."),
+        ],
+        bin_name: None,
+    },
+    AppDef {
+        id: "fail2ban",
+        name: "Fail2ban",
+        category: Category::Server,
+        description: "Bans IPs that show malicious signs, like too many failed login attempts.",
+        install: InstallSpec {
+            apt: Some("fail2ban"),
+            pacman: Some("fail2ban"),
+            dnf: Some("fail2ban"),
+            aur: None,
+            flatpak: None,
+            direct: None,
+            script: None,
+            preference: &[InstallMethod::Native],
+        },
+        post_install: &[
+            PostInstallStep::EnableService { unit: "fail2ban.service", start_now: true },
+            PostInstallStep::Note("running with fail2ban's defaults — add a jail.local for SSH-specific tuning"),
+        ],
+        bin_name: Some("fail2ban-client"),
+    },
+    // ---------------------------------------------------------------
+    // System Utilities
+    // ---------------------------------------------------------------
+    AppDef {
+        id: "purge-snap",
+        name: "Remove Snap (snapd)",
+        category: Category::Utilities,
+        description: "Purges snapd and any snap packages, and pins apt so nothing quietly reinstalls it (Debian/Ubuntu only).",
+        install: InstallSpec {
+            apt: None,
+            pacman: None,
+            dnf: None,
+            aur: None,
+            flatpak: None,
+            direct: None,
+            script: Some(PURGE_SNAP_SCRIPT),
+            preference: &[InstallMethod::Script],
+        },
+        post_install: &[
+            PostInstallStep::Note("snapd removed; apt is pinned to refuse reinstalling it as a dependency of anything else"),
+        ],
+        // Reused as a presence check: bin_name "snap" means the SOLD / FOR
+        // SALE tag actually reports whether snap is currently present,
+        // rather than whether this "app" (an action, not a package) has
+        // been run before.
+        bin_name: Some("snap"),
     },
 ];
 
@@ -235,3 +356,30 @@ SUBSYSTEM=="usb", ATTRS{idVendor}=="28e9", MODE="0666", GROUP="plugdev"
 EOF
 udevadm control --reload-rules
 udevadm trigger"#;
+
+const DOCKER_GROUP_ADD: &str =
+    r#"if [ -n "$SUDO_USER" ]; then usermod -aG docker "$SUDO_USER"; fi"#;
+
+const UFW_SANE_DEFAULTS: &str = r#"ufw default deny incoming
+ufw default allow outgoing
+ufw --force enable"#;
+
+// Purges snapd on Debian/Ubuntu-family systems and pins apt so a later
+// `apt install` of something that recommends snapd doesn't quietly bring
+// it back. Deliberately conservative: does nothing if snap isn't present,
+// and does nothing on non-apt systems.
+const PURGE_SNAP_SCRIPT: &str = r#"if command -v snap >/dev/null 2>&1 && command -v apt-get >/dev/null 2>&1; then
+  systemctl stop snapd.service snapd.socket 2>/dev/null || true
+  for pkg in $(snap list 2>/dev/null | awk 'NR>1{print $1}'); do
+    snap remove --purge "$pkg" 2>/dev/null || true
+  done
+  apt-get purge -y snapd
+  rm -rf /var/cache/snapd /snap /var/snap /var/lib/snapd
+  cat > /etc/apt/preferences.d/nosnap.pref << 'EOF'
+Package: snapd
+Pin: release a=*
+Pin-Priority: -10
+EOF
+else
+  echo "snap not found (or not an apt system) — nothing to purge"
+fi"#;

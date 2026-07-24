@@ -7,9 +7,11 @@ pub mod configure;
 pub mod error;
 pub mod installer;
 pub mod model;
+pub mod profiles;
 pub mod sysinfo;
 
 pub use catalog::{catalog, find};
 pub use error::{BwError, BwResult};
 pub use model::{AppDef, Category, InstallMethod};
+pub use profiles::{find_profile, profile_apps, Profile, PROFILES};
 pub use sysinfo::SystemInfo;

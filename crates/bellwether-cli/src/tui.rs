@@ -84,7 +84,7 @@ fn event_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> Result<(
         "scan done: {n_installed} of {} already on this rig",
         apps.len()
     ));
-    log.push("space/click: pick · i: buy (install) · r: mend (repair) · x: send to pasture (remove) · a: pick all · q: leave the yard".to_string());
+    log.push("space/click: pick · i: buy (install) · r: mend (repair) · x: send to pasture (remove) · a: pick all · 1: Standard · 2: Advanced · 3: Server · q: leave the yard".to_string());
 
     loop {
         terminal.draw(|f| {
@@ -126,6 +126,9 @@ fn event_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> Result<(
                             selected = (0..apps.len()).collect();
                         }
                     }
+                    KeyCode::Char('1') => apply_profile("standard", &apps, &mut selected, &mut log),
+                    KeyCode::Char('2') => apply_profile("advanced", &apps, &mut selected, &mut log),
+                    KeyCode::Char('3') => apply_profile("server", &apps, &mut selected, &mut log),
                     KeyCode::Char('i') | KeyCode::Enter => {
                         if selected.is_empty() {
                             log.push("nothing picked — space to pick some stock first".into());
@@ -212,6 +215,32 @@ fn event_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> Result<(
 fn toggle(selected: &mut HashSet<usize>, idx: usize) {
     if !selected.insert(idx) {
         selected.remove(&idx);
+    }
+}
+
+/// Replaces the current selection with a named profile's apps (matched by
+/// position in `apps`, since `catalog()` is the same order every call).
+fn apply_profile(
+    profile_id: &str,
+    apps: &[&'static AppDef],
+    selected: &mut HashSet<usize>,
+    log: &mut Vec<String>,
+) {
+    match bellwether_core::find_profile(profile_id) {
+        Some(p) => {
+            selected.clear();
+            for (i, app) in apps.iter().enumerate() {
+                if p.app_ids.contains(&app.id) {
+                    selected.insert(i);
+                }
+            }
+            log.push(format!(
+                "picked the '{}' profile ({} apps) — press i to buy the lot",
+                p.name,
+                p.app_ids.len()
+            ));
+        }
+        None => log.push(format!("no such profile: {profile_id}")),
     }
 }
 
@@ -323,7 +352,7 @@ fn draw(
             Style::default().fg(DUSK),
         ),
         Span::raw(format!(
-            "{}  —  space: pick · i: buy · r: mend · x: pasture · a: pick-all · q: leave",
+            "{}  —  space: pick · i: buy · r: mend · x: pasture · a: pick-all · 1/2/3: profiles · q: leave",
             sys.distro_summary()
         )),
     ]))

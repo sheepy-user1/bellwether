@@ -3,6 +3,8 @@
 pub enum Category {
     Monitoring,
     Power,
+    Server,
+    Utilities,
     Creative,
     Gaming,
     Browser,
@@ -15,6 +17,8 @@ impl Category {
         match self {
             Category::Monitoring => "Monitoring",
             Category::Power => "Power Management",
+            Category::Server => "Server",
+            Category::Utilities => "System Utilities",
             Category::Creative => "Creative / 3D Printing",
             Category::Gaming => "Gaming",
             Category::Browser => "Browsers",
@@ -30,6 +34,9 @@ pub enum InstallMethod {
     Aur,    // Arch User Repository via yay/paru
     Flatpak,
     Direct, // .deb / AppImage / tarball download
+    /// A raw shell action rather than a package fetch — for one-off system
+    /// changes like purging snapd. Runs as root.
+    Script,
 }
 
 impl InstallMethod {
@@ -39,6 +46,7 @@ impl InstallMethod {
             InstallMethod::Aur => "AUR",
             InstallMethod::Flatpak => "Flatpak",
             InstallMethod::Direct => "direct download",
+            InstallMethod::Script => "system action",
         }
     }
 }
@@ -67,6 +75,9 @@ pub struct InstallSpec {
     pub aur: Option<&'static str>,
     pub flatpak: Option<&'static str>,
     pub direct: Option<DirectInstall>,
+    /// A raw shell command run as root instead of a package install. Used
+    /// for pure system actions (see `InstallMethod::Script`).
+    pub script: Option<&'static str>,
     /// Order in which to try methods. First available + present-on-system wins.
     pub preference: &'static [InstallMethod],
 }

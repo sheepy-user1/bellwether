@@ -69,6 +69,7 @@ pub fn choose_method(app: &AppDef, sys: &SystemInfo) -> Option<InstallMethod> {
             InstallMethod::Aur => sys.aur_helper.is_some() && app.install.aur.is_some(),
             InstallMethod::Flatpak => sys.has_flatpak && app.install.flatpak.is_some(),
             InstallMethod::Direct => app.install.direct.is_some(),
+            InstallMethod::Script => app.install.script.is_some(),
         };
         if defined {
             return Some(*method);
@@ -163,6 +164,18 @@ fn install_direct(app: &AppDef, sys: &SystemInfo) -> BwResult<()> {
     Ok(())
 }
 
+fn install_script(app: &AppDef, sys: &SystemInfo) -> BwResult<()> {
+    let script = app
+        .install
+        .script
+        .ok_or_else(|| BwError::NoInstallMethod { app: app.id.into() })?;
+    if sys.is_root {
+        run(Command::new("sh").arg("-c").arg(script))
+    } else {
+        run(Command::new("sudo").arg("sh").arg("-c").arg(script))
+    }
+}
+
 /// Installs the package portion of an app (not post-install config).
 pub fn install_package(app: &AppDef, sys: &SystemInfo, method: InstallMethod) -> BwResult<()> {
     match method {
@@ -170,6 +183,7 @@ pub fn install_package(app: &AppDef, sys: &SystemInfo, method: InstallMethod) ->
         InstallMethod::Aur => install_aur(app, sys),
         InstallMethod::Flatpak => install_flatpak(app, sys),
         InstallMethod::Direct => install_direct(app, sys),
+        InstallMethod::Script => install_script(app, sys),
     }
 }
 

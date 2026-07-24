@@ -7,6 +7,8 @@ pub fn list() {
     let categories = [
         Category::Monitoring,
         Category::Power,
+        Category::Server,
+        Category::Utilities,
         Category::Creative,
         Category::Gaming,
         Category::Browser,
@@ -71,8 +73,29 @@ pub fn scan() {
     println!("Use `bellwether repair <id>` to fix a misbehaving install, or `bellwether remove <id>` to take it off.");
 }
 
-/// Resolves ids/--all into concrete AppDefs, warning about unknown ids.
-fn resolve_targets(ids: &[String], all: bool) -> Vec<&'static AppDef> {
+pub fn profiles() {
+    println!("Available profiles:\n");
+    for p in bellwether_core::PROFILES {
+        println!("  {:<10} {}", p.id, p.name);
+        println!("             {}", p.description);
+        println!("             apps: {}\n", p.app_ids.join(", "));
+    }
+    println!("Use with: bellwether install --profile <id>");
+}
+
+/// Resolves ids/--all/--profile into concrete AppDefs, warning about
+/// unknown ids or profile names. Exactly one of `all` or `profile` should
+/// be meaningful at a time; if `profile` is set it takes priority.
+fn resolve_targets(ids: &[String], all: bool, profile: Option<&str>) -> Vec<&'static AppDef> {
+    if let Some(pid) = profile {
+        return match bellwether_core::find_profile(pid) {
+            Some(p) => bellwether_core::profile_apps(p),
+            None => {
+                eprintln!("warning: no profile named '{pid}' (see `bellwether profiles`)");
+                Vec::new()
+            }
+        };
+    }
     if all {
         return catalog();
     }
@@ -88,22 +111,27 @@ fn resolve_targets(ids: &[String], all: bool) -> Vec<&'static AppDef> {
     found
 }
 
-/// Same as `resolve_targets`, but --all only picks up apps that are
-/// actually installed right now — you don't want `remove --all` nuking
-/// things you never installed in the first place.
-fn resolve_installed_targets(ids: &[String], all: bool, sys: &SystemInfo) -> Vec<&'static AppDef> {
-    if all {
-        return catalog()
+/// Same as `resolve_targets`, but --all / --profile only pick up apps that
+/// are actually installed right now — you don't want `remove --all` or
+/// `repair --profile server` blindly touching things you never installed.
+fn resolve_installed_targets(
+    ids: &[String],
+    all: bool,
+    profile: Option<&str>,
+    sys: &SystemInfo,
+) -> Vec<&'static AppDef> {
+    if all || profile.is_some() {
+        return resolve_targets(ids, all, profile)
             .into_iter()
             .filter(|a| installer::is_installed(a, sys))
             .collect();
     }
-    resolve_targets(ids, false)
+    resolve_targets(ids, false, None)
 }
 
-pub fn install(ids: &[String], all: bool) -> Result<()> {
+pub fn install(ids: &[String], all: bool, profile: Option<&str>) -> Result<()> {
     let sys = SystemInfo::detect();
-    let targets = resolve_targets(ids, all);
+    let targets = resolve_targets(ids, all, profile);
 
     if targets.is_empty() {
         eprintln!("nothing to install. Try `bellwether list` to see available app ids.");
@@ -141,9 +169,9 @@ pub fn install(ids: &[String], all: bool) -> Result<()> {
     Ok(())
 }
 
-pub fn remove(ids: &[String], all: bool) -> Result<()> {
+pub fn remove(ids: &[String], all: bool, profile: Option<&str>) -> Result<()> {
     let sys = SystemInfo::detect();
-    let targets = resolve_installed_targets(ids, all, &sys);
+    let targets = resolve_installed_targets(ids, all, profile, &sys);
 
     if targets.is_empty() {
         eprintln!("nothing to remove. Try `bellwether scan` to see what's installed.");
@@ -174,9 +202,9 @@ pub fn remove(ids: &[String], all: bool) -> Result<()> {
     Ok(())
 }
 
-pub fn repair(ids: &[String], all: bool) -> Result<()> {
+pub fn repair(ids: &[String], all: bool, profile: Option<&str>) -> Result<()> {
     let sys = SystemInfo::detect();
-    let targets = resolve_installed_targets(ids, all, &sys);
+    let targets = resolve_installed_targets(ids, all, profile, &sys);
 
     if targets.is_empty() {
         eprintln!("nothing to repair. Try `bellwether scan` to see what's installed.");
