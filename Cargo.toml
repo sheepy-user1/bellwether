@@ -1,0 +1,19 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/bellwether-core",
+    "crates/bellwether-cli",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["you"]
+license = "MIT"
+repository = "https://github.com/YOUR_GH_USERNAME/bellwether"
+
+[profile.release]
+opt-level = 3
+lto = true
+strip = true
+codegen-units = 1
