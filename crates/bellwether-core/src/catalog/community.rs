@@ -33,6 +33,7 @@ pub const COMMUNITY_APPS: &[AppDef] = &[
             },
             PostInstallStep::Note("btop config written with per-core CPU graphs and a readable theme"),
         ],
+        bin_name: None,
     },
     // ---------------------------------------------------------------
     // Power management
@@ -56,6 +57,7 @@ pub const COMMUNITY_APPS: &[AppDef] = &[
             PostInstallStep::EnableService { unit: "powertop-autotune.service", start_now: true },
             PostInstallStep::Note("powertop --auto-tune now runs once at every boot"),
         ],
+        bin_name: None,
     },
     AppDef {
         id: "cpupower",
@@ -76,6 +78,7 @@ pub const COMMUNITY_APPS: &[AppDef] = &[
             PostInstallStep::EnableService { unit: "bellwether-cpugovernor.service", start_now: true },
             PostInstallStep::Note("governor set to 'schedutil' (falls back to 'ondemand' if unsupported), reapplied on every boot"),
         ],
+        bin_name: None,
     },
     AppDef {
         id: "auto-cpufreq",
@@ -96,6 +99,7 @@ pub const COMMUNITY_APPS: &[AppDef] = &[
                 "installed via AUR only for now; finish setup by running: sudo auto-cpufreq --install",
             ),
         ],
+        bin_name: None,
     },
     // ---------------------------------------------------------------
     // Creative / 3D printing
@@ -118,6 +122,7 @@ pub const COMMUNITY_APPS: &[AppDef] = &[
             PostInstallStep::RootShell(BAMBU_UDEV_RULE_INSTALL),
             PostInstallStep::Note("added a udev rule so your user account can access USB-connected printers without sudo"),
         ],
+        bin_name: Some("bambu-studio"),
     },
     // ---------------------------------------------------------------
     // Gaming
@@ -139,6 +144,7 @@ pub const COMMUNITY_APPS: &[AppDef] = &[
         post_install: &[
             PostInstallStep::Note("enable 'Steam Play for all titles' in Settings > Compatibility for the widest Proton coverage"),
         ],
+        bin_name: None,
     },
     // ---------------------------------------------------------------
     // Browsers
@@ -160,6 +166,7 @@ pub const COMMUNITY_APPS: &[AppDef] = &[
         post_install: &[
             PostInstallStep::Note("set as default browser from within Zen's own settings, or run: xdg-settings set default-web-browser app.zen_browser.zen.desktop"),
         ],
+        bin_name: Some("zen"),
     },
 ];
 

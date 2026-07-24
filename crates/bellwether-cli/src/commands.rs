@@ -1,5 +1,5 @@
 use anyhow::Result;
-use bellwether_core::model::Category;
+use bellwether_core::model::{AppDef, Category};
 use bellwether_core::SystemInfo;
 use bellwether_core::{catalog, installer};
 
@@ -51,25 +51,59 @@ pub fn doctor() {
     }
 }
 
-pub fn install(ids: &[String], all: bool) -> Result<()> {
+pub fn scan() {
     let sys = SystemInfo::detect();
+    println!("Scanning system ({})...\n", sys.distro_summary());
+    let mut installed_count = 0;
+    for app in catalog() {
+        let status = if installer::is_installed(app, &sys) {
+            installed_count += 1;
+            "installed"
+        } else {
+            "not installed"
+        };
+        println!("  {:<16} {}", app.id, status);
+    }
+    println!(
+        "\n{installed_count} app(s) installed out of {} in the catalog.",
+        catalog().len()
+    );
+    println!("Use `bellwether repair <id>` to fix a misbehaving install, or `bellwether remove <id>` to take it off.");
+}
 
-    let targets: Vec<_> = if all {
-        catalog()
-    } else {
-        let mut found = Vec::new();
-        for id in ids {
-            match bellwether_core::find(id) {
-                Some(app) => found.push(app),
-                None => {
-                    eprintln!(
-                        "warning: no app with id '{id}' in the catalog (see `bellwether list`)"
-                    );
-                }
+/// Resolves ids/--all into concrete AppDefs, warning about unknown ids.
+fn resolve_targets(ids: &[String], all: bool) -> Vec<&'static AppDef> {
+    if all {
+        return catalog();
+    }
+    let mut found = Vec::new();
+    for id in ids {
+        match bellwether_core::find(id) {
+            Some(app) => found.push(app),
+            None => {
+                eprintln!("warning: no app with id '{id}' in the catalog (see `bellwether list`)");
             }
         }
-        found
-    };
+    }
+    found
+}
+
+/// Same as `resolve_targets`, but --all only picks up apps that are
+/// actually installed right now — you don't want `remove --all` nuking
+/// things you never installed in the first place.
+fn resolve_installed_targets(ids: &[String], all: bool, sys: &SystemInfo) -> Vec<&'static AppDef> {
+    if all {
+        return catalog()
+            .into_iter()
+            .filter(|a| installer::is_installed(a, sys))
+            .collect();
+    }
+    resolve_targets(ids, false)
+}
+
+pub fn install(ids: &[String], all: bool) -> Result<()> {
+    let sys = SystemInfo::detect();
+    let targets = resolve_targets(ids, all);
 
     if targets.is_empty() {
         eprintln!("nothing to install. Try `bellwether list` to see available app ids.");
@@ -98,6 +132,79 @@ pub fn install(ids: &[String], all: bool) -> Result<()> {
     if !failures.is_empty() {
         eprintln!(
             "\n{} app(s) failed: {}",
+            failures.len(),
+            failures.join(", ")
+        );
+        std::process::exit(1);
+    }
+    println!("\nAll done.");
+    Ok(())
+}
+
+pub fn remove(ids: &[String], all: bool) -> Result<()> {
+    let sys = SystemInfo::detect();
+    let targets = resolve_installed_targets(ids, all, &sys);
+
+    if targets.is_empty() {
+        eprintln!("nothing to remove. Try `bellwether scan` to see what's installed.");
+        return Ok(());
+    }
+
+    let mut failures = Vec::new();
+    for app in targets {
+        println!("\n==> removing {} ({})", app.name, app.id);
+        match installer::uninstall_app(app, &sys) {
+            Ok(()) => println!("    removed"),
+            Err(e) => {
+                eprintln!("    FAILED: {e}");
+                failures.push(app.id);
+            }
+        }
+    }
+
+    if !failures.is_empty() {
+        eprintln!(
+            "\n{} app(s) failed to remove: {}",
+            failures.len(),
+            failures.join(", ")
+        );
+        std::process::exit(1);
+    }
+    println!("\nAll done.");
+    Ok(())
+}
+
+pub fn repair(ids: &[String], all: bool) -> Result<()> {
+    let sys = SystemInfo::detect();
+    let targets = resolve_installed_targets(ids, all, &sys);
+
+    if targets.is_empty() {
+        eprintln!("nothing to repair. Try `bellwether scan` to see what's installed.");
+        return Ok(());
+    }
+
+    let mut failures = Vec::new();
+    for app in targets {
+        println!("\n==> repairing {} ({})", app.name, app.id);
+        match installer::repair_app(app, &sys) {
+            Ok(outcome) => {
+                if let Some(m) = outcome.method_used {
+                    println!("    reinstalled via {}", m.label());
+                }
+                for note in outcome.post_install_notes {
+                    println!("    - {note}");
+                }
+            }
+            Err(e) => {
+                eprintln!("    FAILED: {e}");
+                failures.push(app.id);
+            }
+        }
+    }
+
+    if !failures.is_empty() {
+        eprintln!(
+            "\n{} app(s) failed to repair: {}",
             failures.len(),
             failures.join(", ")
         );

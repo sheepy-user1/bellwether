@@ -18,11 +18,30 @@ pub enum Commands {
     List,
     /// Show what bellwether has detected about this machine.
     Doctor,
+    /// Scan the system and report which catalog apps are installed.
+    Scan,
     /// Install one or more apps by id (see `bellwether list`).
     Install {
         /// App ids to install, e.g. `bellwether install btop steam`
         ids: Vec<String>,
         /// Install every app in the catalog.
+        #[arg(long)]
+        all: bool,
+    },
+    /// Remove one or more installed apps by id.
+    Remove {
+        /// App ids to remove, e.g. `bellwether remove steam`
+        ids: Vec<String>,
+        /// Remove every currently-installed app in the catalog.
+        #[arg(long)]
+        all: bool,
+    },
+    /// Reinstall and re-apply config for apps that are misbehaving,
+    /// overwriting any config drift back to bellwether's defaults.
+    Repair {
+        /// App ids to repair, e.g. `bellwether repair btop`
+        ids: Vec<String>,
+        /// Repair every currently-installed app in the catalog.
         #[arg(long)]
         all: bool,
     },

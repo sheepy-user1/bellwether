@@ -42,6 +42,7 @@ AppDef {
     post_install: &[
         PostInstallStep::Note("installed to ~/.local/bin — make sure that's on your PATH"),
     ],
+    bin_name: None,   // set Some("actual-binary-name") if it differs from `id`
 },
 */
 

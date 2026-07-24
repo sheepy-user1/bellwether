@@ -101,4 +101,15 @@ pub struct AppDef {
     pub description: &'static str,
     pub install: InstallSpec,
     pub post_install: &'static [PostInstallStep],
+    /// Binary name to look for on PATH when checking whether this is
+    /// already installed. Defaults to `id` when `None` — set this
+    /// explicitly if the package name and the binary name differ
+    /// (e.g. package "linux-tools-generic" but binary "cpupower").
+    pub bin_name: Option<&'static str>,
+}
+
+impl AppDef {
+    pub fn bin_name(&self) -> &'static str {
+        self.bin_name.unwrap_or(self.id)
+    }
 }

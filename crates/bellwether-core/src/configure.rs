@@ -59,8 +59,25 @@ fn run_shell_as_root(sys: &SystemInfo, cmd: &str) -> BwResult<()> {
 }
 
 /// Applies every post-install step for an app, returning human-readable
-/// notes describing what happened (for CLI/TUI summaries).
+/// notes describing what happened (for CLI/TUI summaries). Respects each
+/// step's own `force` flag for config files (won't clobber your edits).
 pub fn apply_post_install(app: &AppDef, sys: &SystemInfo) -> BwResult<Vec<String>> {
+    apply_post_install_impl(app, sys, false)
+}
+
+/// Same as `apply_post_install`, but treats every `WriteUserFile` step as
+/// forced — overwrites existing config back to bellwether's defaults.
+/// Used by `repair_app` for "fix this because something's drifted /
+/// broken" rather than a fresh install.
+pub fn apply_post_install_forced(app: &AppDef, sys: &SystemInfo) -> BwResult<Vec<String>> {
+    apply_post_install_impl(app, sys, true)
+}
+
+fn apply_post_install_impl(
+    app: &AppDef,
+    sys: &SystemInfo,
+    force_all: bool,
+) -> BwResult<Vec<String>> {
     let mut notes = Vec::new();
     let home = home_dir();
 
@@ -71,6 +88,7 @@ pub fn apply_post_install(app: &AppDef, sys: &SystemInfo) -> BwResult<Vec<String
                 content,
                 force,
             } => {
+                let force = force_all || *force;
                 let home = home.as_ref().map_err(|e| BwError::Other(e.to_string()))?;
                 let path = home.join(rel_path);
                 if path.exists() && !force {

@@ -62,12 +62,29 @@ cargo build --release -p bellwether-cli
 ## Usage
 
 ```bash
-bellwether list              # see everything in the catalog
-bellwether doctor             # check what this machine can install, and how
-bellwether install btop steam # install specific apps
-bellwether install --all      # install everything
-bellwether tui                # interactive checklist (arrow keys, space, mouse click, i to install)
+bellwether list               # see everything in the catalog
+bellwether doctor              # check what this machine can install, and how
+bellwether scan                # check what's actually installed right now
+bellwether install btop steam  # install specific apps
+bellwether install --all       # install everything
+bellwether repair btop         # reinstall + force-reapply config (fixes drift/breakage)
+bellwether remove steam        # uninstall specific apps
+bellwether tui                 # Drover's Yard — the interactive checklist
 ```
+
+### Drover's Yard (the TUI)
+
+`bellwether tui` opens **Drover's Yard** — a barnyard-themed checklist
+(a drover is the person who drives livestock to market, following the
+bellwether). It scans your system on startup so every app is tagged
+`SOLD` (installed) or `FOR SALE` (not), then:
+
+- `space` / mouse click — pick apps
+- `a` — pick/unpick all
+- `i` — buy (install) what's picked
+- `r` — mend (repair/reinstall) what's picked
+- `x` — send to pasture (remove) what's picked — asks for a second `x` to confirm
+- `q` — leave the yard
 
 ## Project layout
 

@@ -20,9 +20,25 @@ use ratatui::{Frame, Terminal};
 use bellwether_core::SystemInfo;
 use bellwether_core::{catalog, installer, AppDef};
 
+// Barnyard palette. Rgb keeps it consistent regardless of the user's
+// terminal color scheme, unlike the named ANSI colors.
+const BARNWOOD: Color = Color::Rgb(150, 105, 60);
+const HAY: Color = Color::Rgb(216, 178, 98);
+const PASTURE_GREEN: Color = Color::Rgb(90, 130, 60);
+const BARN_RED: Color = Color::Rgb(170, 60, 50);
+const DUSK: Color = Color::Rgb(120, 110, 100);
+
 struct Row {
     idx: usize,
     area: Rect,
+}
+
+/// Which action the last `space`/click selection is destined for. Lets us
+/// reuse one selection set for install/repair/remove instead of three.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ArmedAction {
+    None,
+    ConfirmRemove,
 }
 
 pub fn run() -> Result<()> {
@@ -50,16 +66,31 @@ fn event_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> Result<(
     let apps: Vec<&'static AppDef> = catalog();
     let mut selected: HashSet<usize> = HashSet::new();
     let mut cursor: usize = 0;
-    let mut log: Vec<String> = vec![
-        format!("detected: {}", sys.distro_summary()),
-        "space/click = toggle, i = install selected, q = quit".to_string(),
-    ];
+    let mut log: Vec<String> = vec![format!("welcome to the yard — {}", sys.distro_summary())];
     let mut rows: Vec<Row> = Vec::new();
-    let mut installing = false;
+    let mut working = false;
+    let mut armed = ArmedAction::None;
+
+    log.push("scanning pens for what's already out to pasture...".to_string());
+    terminal.draw(|f| {
+        rows = draw(f, &apps, &[], &selected, cursor, &log, &sys, working, armed);
+    })?;
+    let mut installed: Vec<bool> = apps
+        .iter()
+        .map(|a| installer::is_installed(a, &sys))
+        .collect();
+    let n_installed = installed.iter().filter(|b| **b).count();
+    log.push(format!(
+        "scan done: {n_installed} of {} already on this rig",
+        apps.len()
+    ));
+    log.push("space/click: pick · i: buy (install) · r: mend (repair) · x: send to pasture (remove) · a: pick all · q: leave the yard".to_string());
 
     loop {
         terminal.draw(|f| {
-            rows = draw(f, &apps, &selected, cursor, &log, &sys, installing);
+            rows = draw(
+                f, &apps, &installed, &selected, cursor, &log, &sys, working, armed,
+            );
         })?;
 
         if !event::poll(std::time::Duration::from_millis(150))? {
@@ -67,40 +98,98 @@ fn event_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> Result<(
         }
 
         match event::read()? {
-            Event::Key(key) if key.kind == KeyEventKind::Press => match key.code {
-                KeyCode::Char('q') | KeyCode::Esc => break,
-                KeyCode::Down | KeyCode::Char('j') => {
-                    if cursor + 1 < apps.len() {
-                        cursor += 1;
+            Event::Key(key) if key.kind == KeyEventKind::Press => {
+                // Any key other than 'x' cancels a pending remove confirmation.
+                let is_x = matches!(key.code, KeyCode::Char('x'));
+                if armed == ArmedAction::ConfirmRemove && !is_x {
+                    armed = ArmedAction::None;
+                    log.push("remove cancelled.".to_string());
+                }
+
+                match key.code {
+                    KeyCode::Char('q') | KeyCode::Esc => break,
+                    KeyCode::Down | KeyCode::Char('j') => {
+                        if cursor + 1 < apps.len() {
+                            cursor += 1;
+                        }
                     }
-                }
-                KeyCode::Up | KeyCode::Char('k') => {
-                    cursor = cursor.saturating_sub(1);
-                }
-                KeyCode::Char(' ') => {
-                    toggle(&mut selected, cursor);
-                }
-                KeyCode::Char('a') => {
-                    if selected.len() == apps.len() {
-                        selected.clear();
-                    } else {
-                        selected = (0..apps.len()).collect();
+                    KeyCode::Up | KeyCode::Char('k') => {
+                        cursor = cursor.saturating_sub(1);
                     }
-                }
-                KeyCode::Char('i') | KeyCode::Enter => {
-                    if selected.is_empty() {
-                        log.push("nothing selected — press space to select apps first".into());
-                    } else {
-                        installing = true;
-                        terminal.draw(|f| {
-                            rows = draw(f, &apps, &selected, cursor, &log, &sys, installing);
-                        })?;
-                        install_selected(&apps, &selected, &sys, &mut log);
-                        installing = false;
+                    KeyCode::Char(' ') => {
+                        toggle(&mut selected, cursor);
                     }
+                    KeyCode::Char('a') => {
+                        if selected.len() == apps.len() {
+                            selected.clear();
+                        } else {
+                            selected = (0..apps.len()).collect();
+                        }
+                    }
+                    KeyCode::Char('i') | KeyCode::Enter => {
+                        if selected.is_empty() {
+                            log.push("nothing picked — space to pick some stock first".into());
+                        } else {
+                            working = true;
+                            terminal.draw(|f| {
+                                rows = draw(
+                                    f, &apps, &installed, &selected, cursor, &log, &sys, working,
+                                    armed,
+                                );
+                            })?;
+                            install_selected(&apps, &selected, &sys, &mut log);
+                            for &idx in &selected {
+                                installed[idx] = installer::is_installed(apps[idx], &sys);
+                            }
+                            working = false;
+                        }
+                    }
+                    KeyCode::Char('r') => {
+                        if selected.is_empty() {
+                            log.push("nothing picked — space to pick some stock first".into());
+                        } else {
+                            working = true;
+                            terminal.draw(|f| {
+                                rows = draw(
+                                    f, &apps, &installed, &selected, cursor, &log, &sys, working,
+                                    armed,
+                                );
+                            })?;
+                            repair_selected(&apps, &selected, &sys, &mut log);
+                            for &idx in &selected {
+                                installed[idx] = installer::is_installed(apps[idx], &sys);
+                            }
+                            working = false;
+                        }
+                    }
+                    KeyCode::Char('x') => {
+                        if selected.is_empty() {
+                            log.push("nothing picked — space to pick some stock first".into());
+                        } else if armed == ArmedAction::ConfirmRemove {
+                            armed = ArmedAction::None;
+                            working = true;
+                            terminal.draw(|f| {
+                                rows = draw(
+                                    f, &apps, &installed, &selected, cursor, &log, &sys, working,
+                                    armed,
+                                );
+                            })?;
+                            remove_selected(&apps, &selected, &installed, &sys, &mut log);
+                            for &idx in &selected {
+                                installed[idx] = installer::is_installed(apps[idx], &sys);
+                            }
+                            working = false;
+                        } else {
+                            armed = ArmedAction::ConfirmRemove;
+                            log.push(
+                                "press x again to confirm sending the picked stock to pasture (any other key cancels)"
+                                    .to_string(),
+                            );
+                        }
+                    }
+                    _ => {}
                 }
-                _ => {}
-            },
+            }
             Event::Mouse(m) => {
                 if let MouseEventKind::Down(MouseButton::Left) = m.kind {
                     for row in &rows {
@@ -136,11 +225,11 @@ fn install_selected(
     ids.sort_unstable();
     for idx in ids {
         let app = apps[idx];
-        log.push(format!("installing {}...", app.name));
+        log.push(format!("buying {}...", app.name));
         match installer::install_app(app, sys) {
             Ok(outcome) => {
                 if let Some(m) = outcome.method_used {
-                    log.push(format!("  ok, via {}", m.label()));
+                    log.push(format!("  sold! via {}", m.label()));
                 }
                 for note in outcome.post_install_notes {
                     log.push(format!("  - {note}"));
@@ -149,17 +238,70 @@ fn install_selected(
             Err(e) => log.push(format!("  FAILED: {e}")),
         }
     }
-    log.push("done.".to_string());
+    log.push("done at the counter.".to_string());
 }
 
+fn repair_selected(
+    apps: &[&'static AppDef],
+    selected: &HashSet<usize>,
+    sys: &SystemInfo,
+    log: &mut Vec<String>,
+) {
+    let mut ids: Vec<usize> = selected.iter().copied().collect();
+    ids.sort_unstable();
+    for idx in ids {
+        let app = apps[idx];
+        log.push(format!("mending {}...", app.name));
+        match installer::repair_app(app, sys) {
+            Ok(outcome) => {
+                if let Some(m) = outcome.method_used {
+                    log.push(format!("  patched up via {}", m.label()));
+                }
+                for note in outcome.post_install_notes {
+                    log.push(format!("  - {note}"));
+                }
+            }
+            Err(e) => log.push(format!("  FAILED: {e}")),
+        }
+    }
+    log.push("done mending.".to_string());
+}
+
+fn remove_selected(
+    apps: &[&'static AppDef],
+    selected: &HashSet<usize>,
+    installed: &[bool],
+    sys: &SystemInfo,
+    log: &mut Vec<String>,
+) {
+    let mut ids: Vec<usize> = selected.iter().copied().collect();
+    ids.sort_unstable();
+    for idx in ids {
+        let app = apps[idx];
+        if !installed[idx] {
+            log.push(format!("{} isn't installed, nothing to send off", app.name));
+            continue;
+        }
+        log.push(format!("sending {} to pasture...", app.name));
+        match installer::uninstall_app(app, sys) {
+            Ok(()) => log.push("  gone.".to_string()),
+            Err(e) => log.push(format!("  FAILED: {e}")),
+        }
+    }
+    log.push("done at the gate.".to_string());
+}
+
+#[allow(clippy::too_many_arguments)]
 fn draw(
     f: &mut Frame<CrosstermBackend<io::Stdout>>,
     apps: &[&'static AppDef],
+    installed: &[bool],
     selected: &HashSet<usize>,
     cursor: usize,
     log: &[String],
     sys: &SystemInfo,
-    installing: bool,
+    working: bool,
+    armed: ArmedAction,
 ) -> Vec<Row> {
     let size = f.size();
     let chunks = Layout::default()
@@ -173,17 +315,23 @@ fn draw(
 
     let header = Paragraph::new(Line::from(vec![
         Span::styled(
-            "Bellwether",
-            Style::default()
-                .fg(Color::Yellow)
-                .add_modifier(Modifier::BOLD),
+            "🐑 DROVER'S YARD",
+            Style::default().fg(HAY).add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(
+            "  —  a Bellwether livestock & software exchange  —  ",
+            Style::default().fg(DUSK),
         ),
         Span::raw(format!(
-            "  —  {}  —  space: toggle · i: install · a: select-all · q: quit",
+            "{}  —  space: pick · i: buy · r: mend · x: pasture · a: pick-all · q: leave",
             sys.distro_summary()
         )),
     ]))
-    .block(Block::default().borders(Borders::ALL));
+    .block(
+        Block::default()
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(BARNWOOD)),
+    );
     f.render_widget(header, chunks[0]);
 
     let list_area = chunks[1];
@@ -194,17 +342,29 @@ fn draw(
         .map(|(i, app)| {
             let checked = selected.contains(&i);
             let marker = if checked { "[x]" } else { "[ ]" };
-            let style = if i == cursor {
+            let is_installed = installed.get(i).copied().unwrap_or(false);
+            let (tag, tag_color) = if is_installed {
+                ("SOLD    ", PASTURE_GREEN)
+            } else {
+                ("FOR SALE", DUSK)
+            };
+            let base_style = if i == cursor {
                 Style::default().add_modifier(Modifier::REVERSED)
             } else {
                 Style::default()
             };
-            let line = format!(
-                " {marker} {:<16} {} — {}",
-                app.id,
-                app.category.label(),
-                app.description
-            );
+            let line = Line::from(vec![
+                Span::styled(format!(" {marker} "), base_style),
+                Span::styled(format!("{tag} "), base_style.fg(tag_color)),
+                Span::styled(
+                    format!("{:<16} ", app.id),
+                    base_style.add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(
+                    format!("{} — {}", app.category.label(), app.description),
+                    base_style.fg(DUSK),
+                ),
+            ]);
             rows.push(Row {
                 idx: i,
                 area: Rect {
@@ -214,10 +374,15 @@ fn draw(
                     height: 1,
                 },
             });
-            ListItem::new(line).style(style)
+            ListItem::new(line)
         })
         .collect();
-    let list = List::new(items).block(Block::default().title("Apps").borders(Borders::ALL));
+    let list = List::new(items).block(
+        Block::default()
+            .title("The Pens")
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(BARNWOOD)),
+    );
     f.render_widget(list, list_area);
 
     let log_text: Vec<Line> = log
@@ -227,12 +392,22 @@ fn draw(
         .rev()
         .map(|l| Line::from(l.as_str()))
         .collect();
-    let title = if installing { "Working..." } else { "Log" };
-    let log_widget =
-        Paragraph::new(log_text).block(Block::default().title(title).borders(Borders::ALL));
+    let (title, border_color) = if armed == ArmedAction::ConfirmRemove {
+        ("Confirm — press x again", BARN_RED)
+    } else if working {
+        ("Working...", HAY)
+    } else {
+        ("The Ledger", BARNWOOD)
+    };
+    let log_widget = Paragraph::new(log_text).block(
+        Block::default()
+            .title(title)
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(border_color)),
+    );
     f.render_widget(log_widget, chunks[2]);
 
-    if installing {
+    if working {
         let popup = Rect {
             x: size.width / 2 - 10,
             y: size.height / 2 - 1,
@@ -240,7 +415,11 @@ fn draw(
             height: 3,
         };
         f.render_widget(Clear, popup);
-        let msg = Paragraph::new("installing...").block(Block::default().borders(Borders::ALL));
+        let msg = Paragraph::new("working the yard...").block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(HAY)),
+        );
         f.render_widget(msg, popup);
     }
 
