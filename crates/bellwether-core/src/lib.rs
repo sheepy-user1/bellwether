@@ -9,7 +9,7 @@ pub mod installer;
 pub mod model;
 pub mod sysinfo;
 
-pub use catalog::{find, CATALOG};
+pub use catalog::{catalog, find};
 pub use error::{BwError, BwResult};
 pub use model::{AppDef, Category, InstallMethod};
 pub use sysinfo::SystemInfo;

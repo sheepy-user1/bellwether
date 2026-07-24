@@ -18,7 +18,7 @@ use ratatui::widgets::{Block, Borders, Clear, List, ListItem, Paragraph};
 use ratatui::{Frame, Terminal};
 
 use bellwether_core::SystemInfo;
-use bellwether_core::{installer, CATALOG};
+use bellwether_core::{catalog, installer, AppDef};
 
 struct Row {
     idx: usize,
@@ -47,6 +47,7 @@ pub fn run() -> Result<()> {
 
 fn event_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> Result<()> {
     let sys = SystemInfo::detect();
+    let apps: Vec<&'static AppDef> = catalog();
     let mut selected: HashSet<usize> = HashSet::new();
     let mut cursor: usize = 0;
     let mut log: Vec<String> = vec![
@@ -58,7 +59,7 @@ fn event_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> Result<(
 
     loop {
         terminal.draw(|f| {
-            rows = draw(f, &selected, cursor, &log, &sys, installing);
+            rows = draw(f, &apps, &selected, cursor, &log, &sys, installing);
         })?;
 
         if !event::poll(std::time::Duration::from_millis(150))? {
@@ -69,7 +70,7 @@ fn event_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> Result<(
             Event::Key(key) if key.kind == KeyEventKind::Press => match key.code {
                 KeyCode::Char('q') | KeyCode::Esc => break,
                 KeyCode::Down | KeyCode::Char('j') => {
-                    if cursor + 1 < CATALOG.len() {
+                    if cursor + 1 < apps.len() {
                         cursor += 1;
                     }
                 }
@@ -80,10 +81,10 @@ fn event_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> Result<(
                     toggle(&mut selected, cursor);
                 }
                 KeyCode::Char('a') => {
-                    if selected.len() == CATALOG.len() {
+                    if selected.len() == apps.len() {
                         selected.clear();
                     } else {
-                        selected = (0..CATALOG.len()).collect();
+                        selected = (0..apps.len()).collect();
                     }
                 }
                 KeyCode::Char('i') | KeyCode::Enter => {
@@ -92,9 +93,9 @@ fn event_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> Result<(
                     } else {
                         installing = true;
                         terminal.draw(|f| {
-                            rows = draw(f, &selected, cursor, &log, &sys, installing);
+                            rows = draw(f, &apps, &selected, cursor, &log, &sys, installing);
                         })?;
-                        install_selected(&selected, &sys, &mut log);
+                        install_selected(&apps, &selected, &sys, &mut log);
                         installing = false;
                     }
                 }
@@ -125,11 +126,16 @@ fn toggle(selected: &mut HashSet<usize>, idx: usize) {
     }
 }
 
-fn install_selected(selected: &HashSet<usize>, sys: &SystemInfo, log: &mut Vec<String>) {
+fn install_selected(
+    apps: &[&'static AppDef],
+    selected: &HashSet<usize>,
+    sys: &SystemInfo,
+    log: &mut Vec<String>,
+) {
     let mut ids: Vec<usize> = selected.iter().copied().collect();
     ids.sort_unstable();
     for idx in ids {
-        let app = &CATALOG[idx];
+        let app = apps[idx];
         log.push(format!("installing {}...", app.name));
         match installer::install_app(app, sys) {
             Ok(outcome) => {
@@ -148,6 +154,7 @@ fn install_selected(selected: &HashSet<usize>, sys: &SystemInfo, log: &mut Vec<S
 
 fn draw(
     f: &mut Frame<CrosstermBackend<io::Stdout>>,
+    apps: &[&'static AppDef],
     selected: &HashSet<usize>,
     cursor: usize,
     log: &[String],
@@ -180,8 +187,8 @@ fn draw(
     f.render_widget(header, chunks[0]);
 
     let list_area = chunks[1];
-    let mut rows = Vec::with_capacity(CATALOG.len());
-    let items: Vec<ListItem> = CATALOG
+    let mut rows = Vec::with_capacity(apps.len());
+    let items: Vec<ListItem> = apps
         .iter()
         .enumerate()
         .map(|(i, app)| {

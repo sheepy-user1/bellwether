@@ -82,7 +82,21 @@ scripts/
   release.yml        # builds x86_64/aarch64 binaries and attaches to GitHub Releases on a `vX.Y.Z` tag
 ```
 
-## Adding an app to the catalog
+## Adding your own apps (hosted on your own GitHub Releases)
+
+Open `crates/bellwether-core/src/catalog/my_apps.rs` — that file has a
+ready-to-copy template and is kept separate from the built-in catalog so
+your stuff never gets tangled up with community app updates.
+
+The short version: point `install.direct.url` at
+`https://github.com/<you>/<repo>/releases/latest/download/<asset-name>`
+(not a URL with a version number baked in). GitHub always redirects that
+to whatever you most recently tagged, as long as every release attaches
+an asset with that exact filename. Set up your app's own release workflow
+the same way `.github/workflows/release.yml` does it here, and it just
+works — no need to touch bellwether again when you ship v2.
+
+## Adding a community app to the catalog
 
 Each app is one `AppDef` in `catalog.rs`:
 

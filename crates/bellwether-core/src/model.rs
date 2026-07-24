@@ -6,6 +6,8 @@ pub enum Category {
     Creative,
     Gaming,
     Browser,
+    /// Apps you build yourself, hosted on your own GitHub Releases.
+    Custom,
 }
 
 impl Category {
@@ -16,6 +18,7 @@ impl Category {
             Category::Creative => "Creative / 3D Printing",
             Category::Gaming => "Gaming",
             Category::Browser => "Browsers",
+            Category::Custom => "My Apps",
         }
     }
 }

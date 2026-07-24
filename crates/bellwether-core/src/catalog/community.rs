@@ -1,10 +1,13 @@
 use crate::model::*;
 
-/// The full built-in app catalog. This is a plain Rust list rather than an
-/// external TOML file for now — trivial to extend, and the compiler catches
-/// typos in field names. If this grows large, split into one const per
-/// category or move to a data file + serde.
-pub const CATALOG: &[AppDef] = &[
+/// The built-in, "everyone probably wants this" catalog. This is a plain
+/// Rust list rather than an external TOML file for now — trivial to
+/// extend, and the compiler catches typos in field names.
+///
+/// If you're adding your *own* apps (things you built yourself), put them
+/// in `my_apps.rs` instead — keeps this file as the "community" set that's
+/// easy to diff/update independently of your personal stuff.
+pub const COMMUNITY_APPS: &[AppDef] = &[
     // ---------------------------------------------------------------
     // Monitoring
     // ---------------------------------------------------------------
@@ -159,10 +162,6 @@ pub const CATALOG: &[AppDef] = &[
         ],
     },
 ];
-
-pub fn find(id: &str) -> Option<&'static AppDef> {
-    CATALOG.iter().find(|a| a.id == id)
-}
 
 // ---------------------------------------------------------------------
 // Config file / shell script bodies, kept at the bottom to keep the

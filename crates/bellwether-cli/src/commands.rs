@@ -1,7 +1,7 @@
 use anyhow::Result;
 use bellwether_core::model::Category;
 use bellwether_core::SystemInfo;
-use bellwether_core::{installer, CATALOG};
+use bellwether_core::{catalog, installer};
 
 pub fn list() {
     let categories = [
@@ -10,9 +10,11 @@ pub fn list() {
         Category::Creative,
         Category::Gaming,
         Category::Browser,
+        Category::Custom,
     ];
+    let all_apps = catalog();
     for cat in categories {
-        let apps: Vec<_> = CATALOG
+        let apps: Vec<_> = all_apps
             .iter()
             .filter(|a| a.category as u8 == cat as u8)
             .collect();
@@ -40,7 +42,7 @@ pub fn doctor() {
     println!("running as root   : {}", sys.is_root);
     println!();
     println!("Per-app viability:");
-    for app in CATALOG {
+    for app in catalog() {
         let verdict = match installer::choose_method(app, &sys) {
             Some(m) => format!("OK, via {}", m.label()),
             None => "no viable install method on this system".to_string(),
@@ -53,7 +55,7 @@ pub fn install(ids: &[String], all: bool) -> Result<()> {
     let sys = SystemInfo::detect();
 
     let targets: Vec<_> = if all {
-        CATALOG.iter().collect()
+        catalog()
     } else {
         let mut found = Vec::new();
         for id in ids {
