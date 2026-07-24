@@ -176,6 +176,163 @@ pub const COMMUNITY_APPS: &[AppDef] = &[
         bin_name: Some("zen"),
     },
     // ---------------------------------------------------------------
+    // Shell & Terminal
+    // ---------------------------------------------------------------
+    AppDef {
+        id: "fish",
+        name: "fish shell",
+        category: Category::Shell,
+        description: "Friendly interactive shell: sane defaults, autosuggestions, no config required.",
+        install: InstallSpec {
+            apt: Some("fish"),
+            pacman: Some("fish"),
+            dnf: Some("fish"),
+            aur: None,
+            flatpak: None,
+            direct: None,
+            script: None,
+            preference: &[InstallMethod::Native],
+        },
+        post_install: &[
+            PostInstallStep::Note("to make it your login shell, run: chsh -s $(which fish)  — then log out and back in"),
+        ],
+        bin_name: None,
+    },
+    AppDef {
+        id: "starship",
+        name: "Starship prompt",
+        category: Category::Shell,
+        description: "Fast, minimal, infinitely customizable shell prompt. Works with bash, zsh, fish.",
+        install: InstallSpec {
+            apt: None,
+            pacman: Some("starship"),
+            dnf: None,
+            aur: None,
+            flatpak: None,
+            direct: None,
+            script: Some(STARSHIP_INSTALL_SCRIPT),
+            preference: &[InstallMethod::Native, InstallMethod::Script],
+        },
+        post_install: &[
+            PostInstallStep::Note("add this to your shell's rc file to turn it on — bash/zsh: eval \"$(starship init bash)\" (or zsh); fish: starship init fish | source"),
+        ],
+        bin_name: None,
+    },
+    AppDef {
+        id: "tmux",
+        name: "tmux",
+        category: Category::Shell,
+        description: "Terminal multiplexer: split panes, detachable sessions that survive a disconnect.",
+        install: InstallSpec {
+            apt: Some("tmux"),
+            pacman: Some("tmux"),
+            dnf: Some("tmux"),
+            aur: None,
+            flatpak: None,
+            direct: None,
+            script: None,
+            preference: &[InstallMethod::Native],
+        },
+        post_install: &[],
+        bin_name: None,
+    },
+    AppDef {
+        id: "neovim",
+        name: "Neovim",
+        category: Category::Shell,
+        description: "Modernized, extensible Vim — the terminal text editor.",
+        install: InstallSpec {
+            apt: Some("neovim"),
+            pacman: Some("neovim"),
+            dnf: Some("neovim"),
+            aur: None,
+            flatpak: None,
+            direct: None,
+            script: None,
+            preference: &[InstallMethod::Native],
+        },
+        post_install: &[],
+        bin_name: Some("nvim"),
+    },
+    AppDef {
+        id: "ripgrep",
+        name: "ripgrep",
+        category: Category::Shell,
+        description: "Recursive grep replacement — respects .gitignore and is dramatically faster.",
+        install: InstallSpec {
+            apt: Some("ripgrep"),
+            pacman: Some("ripgrep"),
+            dnf: Some("ripgrep"),
+            aur: None,
+            flatpak: None,
+            direct: None,
+            script: None,
+            preference: &[InstallMethod::Native],
+        },
+        post_install: &[],
+        bin_name: Some("rg"),
+    },
+    AppDef {
+        id: "fzf",
+        name: "fzf",
+        category: Category::Shell,
+        description: "Command-line fuzzy finder — pipe anything into it, filter interactively.",
+        install: InstallSpec {
+            apt: Some("fzf"),
+            pacman: Some("fzf"),
+            dnf: Some("fzf"),
+            aur: None,
+            flatpak: None,
+            direct: None,
+            script: None,
+            preference: &[InstallMethod::Native],
+        },
+        post_install: &[
+            PostInstallStep::Note("add key bindings to your shell rc — see fzf --bash / --zsh / --fish"),
+        ],
+        bin_name: None,
+    },
+    AppDef {
+        id: "bat",
+        name: "bat",
+        category: Category::Shell,
+        description: "cat replacement with syntax highlighting and git-diff markers in the gutter.",
+        install: InstallSpec {
+            apt: Some("bat"),
+            pacman: Some("bat"),
+            dnf: Some("bat"),
+            aur: None,
+            flatpak: None,
+            direct: None,
+            script: None,
+            preference: &[InstallMethod::Native],
+        },
+        post_install: &[
+            PostInstallStep::Note("on Debian/Ubuntu the binary is installed as 'batcat' (name clash with an old package) — alias bat=batcat if you want the short name"),
+        ],
+        bin_name: None,
+    },
+    AppDef {
+        id: "fastfetch",
+        name: "fastfetch",
+        category: Category::Shell,
+        description: "Fast system-info splash for your terminal — the neofetch successor.",
+        install: InstallSpec {
+            apt: Some("fastfetch"),
+            pacman: Some("fastfetch"),
+            dnf: Some("fastfetch"),
+            aur: None,
+            flatpak: None,
+            direct: None,
+            script: None,
+            preference: &[InstallMethod::Native],
+        },
+        post_install: &[
+            PostInstallStep::Note("older LTS releases may not carry this package yet — check your distro's version if apt/dnf can't find it"),
+        ],
+        bin_name: None,
+    },
+    // ---------------------------------------------------------------
     // Server
     // ---------------------------------------------------------------
     AppDef {
@@ -383,3 +540,7 @@ EOF
 else
   echo "snap not found (or not an apt system) — nothing to purge"
 fi"#;
+
+// Official Starship installer, run non-interactively. Used only as a
+// fallback when there's no native package (e.g. apt/dnf don't carry it).
+const STARSHIP_INSTALL_SCRIPT: &str = r#"curl -sS https://starship.rs/install.sh | sh -s -- -y"#;

@@ -32,6 +32,14 @@ line the same way.
 | `powertop` | power usage diagnostics + auto-tune | Power |
 | `cpupower` | CPU frequency governor | Power |
 | `auto-cpufreq` | automatic CPU speed/power optimizer | Power |
+| `fish` | friendly interactive shell | Shell & Terminal |
+| `starship` | fast, minimal shell prompt | Shell & Terminal |
+| `tmux` | terminal multiplexer | Shell & Terminal |
+| `neovim` | modernized Vim | Shell & Terminal |
+| `ripgrep` | fast recursive grep | Shell & Terminal |
+| `fzf` | command-line fuzzy finder | Shell & Terminal |
+| `bat` | cat with syntax highlighting | Shell & Terminal |
+| `fastfetch` | terminal system-info splash | Shell & Terminal |
 | `docker` | container runtime | Server |
 | `docker-compose` | multi-container orchestration | Server |
 | `ufw` | firewall front-end | Server |
@@ -96,13 +104,14 @@ bellwether tui                 # Drover's Yard — the interactive checklist
 
 `bellwether tui` opens **Drover's Yard** — a barnyard-themed checklist
 (a drover is the person who drives livestock to market, following the
-bellwether). It scans your system on startup so every app is tagged
-`SOLD` (installed) or `FOR SALE` (not), then:
+bellwether). It takes a headcount of your system on startup so every app
+is tagged `SOLD` (installed) or `FOR SALE` (not), then:
 
 - `space` / mouse click — pick apps
-- `a` — pick/unpick all
+- `a` — round up the herd (select/deselect all)
+- `1` / `2` / `3` — load the Standard / Advanced / Server profile into your pick
 - `i` — buy (install) what's picked
-- `r` — mend (repair/reinstall) what's picked
+- `r` — call the vet (repair/reinstall) what's picked
 - `x` — send to pasture (remove) what's picked — asks for a second `x` to confirm
 - `q` — leave the yard
 

@@ -7,6 +7,7 @@ pub fn list() {
     let categories = [
         Category::Monitoring,
         Category::Power,
+        Category::Shell,
         Category::Server,
         Category::Utilities,
         Category::Creative,
@@ -55,14 +56,14 @@ pub fn doctor() {
 
 pub fn scan() {
     let sys = SystemInfo::detect();
-    println!("Scanning system ({})...\n", sys.distro_summary());
+    println!("Taking headcount ({})...\n", sys.distro_summary());
     let mut installed_count = 0;
     for app in catalog() {
         let status = if installer::is_installed(app, &sys) {
             installed_count += 1;
-            "installed"
+            "on the rig (installed)"
         } else {
-            "not installed"
+            "out to pasture (not installed)"
         };
         println!("  {:<16} {}", app.id, status);
     }

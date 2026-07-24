@@ -3,6 +3,7 @@
 pub enum Category {
     Monitoring,
     Power,
+    Shell,
     Server,
     Utilities,
     Creative,
@@ -17,6 +18,7 @@ impl Category {
         match self {
             Category::Monitoring => "Monitoring",
             Category::Power => "Power Management",
+            Category::Shell => "Shell & Terminal",
             Category::Server => "Server",
             Category::Utilities => "System Utilities",
             Category::Creative => "Creative / 3D Printing",

@@ -81,10 +81,10 @@ fn event_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> Result<(
         .collect();
     let n_installed = installed.iter().filter(|b| **b).count();
     log.push(format!(
-        "scan done: {n_installed} of {} already on this rig",
+        "headcount done: {n_installed} of {} already on this rig",
         apps.len()
     ));
-    log.push("space/click: pick · i: buy (install) · r: mend (repair) · x: send to pasture (remove) · a: pick all · 1: Standard · 2: Advanced · 3: Server · q: leave the yard".to_string());
+    log.push("space/click: pick · i: buy (install) · r: call the vet (repair) · x: send to pasture (remove) · a: round up the herd (select-all) · 1: Standard · 2: Advanced · 3: Server · q: leave the yard".to_string());
 
     loop {
         terminal.draw(|f| {
@@ -280,7 +280,7 @@ fn repair_selected(
     ids.sort_unstable();
     for idx in ids {
         let app = apps[idx];
-        log.push(format!("mending {}...", app.name));
+        log.push(format!("the vet is looking at {}...", app.name));
         match installer::repair_app(app, sys) {
             Ok(outcome) => {
                 if let Some(m) = outcome.method_used {
@@ -293,7 +293,7 @@ fn repair_selected(
             Err(e) => log.push(format!("  FAILED: {e}")),
         }
     }
-    log.push("done mending.".to_string());
+    log.push("all patched up.".to_string());
 }
 
 fn remove_selected(
@@ -352,7 +352,7 @@ fn draw(
             Style::default().fg(DUSK),
         ),
         Span::raw(format!(
-            "{}  —  space: pick · i: buy · r: mend · x: pasture · a: pick-all · 1/2/3: profiles · q: leave",
+            "{}  —  space: pick · i: buy · r: vet · x: pasture · a: round-up · 1/2/3: profiles · q: leave",
             sys.distro_summary()
         )),
     ]))
