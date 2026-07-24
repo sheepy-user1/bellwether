@@ -10,7 +10,7 @@ version = "0.1.0"
 edition = "2021"
 authors = ["you"]
 license = "MIT"
-repository = "https://github.com/YOUR_GH_USERNAME/bellwether"
+repository = "https://github.com/sheepy-user1/bellwether"
 
 [profile.release]
 opt-level = 3

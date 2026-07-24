@@ -45,13 +45,13 @@ list with comments.
 **Script (recommended):**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/YOUR_GH_USERNAME/bellwether/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/sheepy-user1/bellwether/main/scripts/install.sh | bash
 ```
 
 **From source:**
 
 ```bash
-git clone https://github.com/YOUR_GH_USERNAME/bellwether.git
+git clone https://github.com/sheepy-user1/bellwether.git
 cd bellwether
 cargo build --release -p bellwether-cli
 ./target/release/bellwether tui

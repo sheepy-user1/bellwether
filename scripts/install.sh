@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Bellwether installer script.
 #
-#   curl -fsSL https://raw.githubusercontent.com/<YOUR_GH_USERNAME>/bellwether/main/scripts/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/<sheepy-user1>/bellwether/main/scripts/install.sh | bash
 #
 # Downloads the latest prebuilt Linux x86_64 binary from GitHub Releases and
 # drops it into ~/.local/bin. Falls back to building from source with cargo
@@ -9,7 +9,7 @@
 # hasn't been released yet).
 set -euo pipefail
 
-REPO="${BELLWETHER_REPO:-YOUR_GH_USERNAME/bellwether}"
+REPO="${BELLWETHER_REPO:-sheepy-user1/bellwether}"
 INSTALL_DIR="${BELLWETHER_INSTALL_DIR:-$HOME/.local/bin}"
 BIN_NAME="bellwether"
 
