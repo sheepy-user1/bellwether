@@ -32,13 +32,33 @@ line the same way.
 | `powertop` | power usage diagnostics + auto-tune | Power |
 | `cpupower` | CPU frequency governor | Power |
 | `auto-cpufreq` | automatic CPU speed/power optimizer | Power |
+| `docker` | container runtime | Server |
+| `docker-compose` | multi-container orchestration | Server |
+| `ufw` | firewall front-end | Server |
+| `fail2ban` | bans IPs after repeated bad logins | Server |
+| `purge-snap` | removes snapd and pins apt against it | System Utilities |
 | `bambustudio` | 3D-printer slicer | Creative |
 | `steam` | game store/launcher | Gaming |
 | `zen-browser` | privacy-focused Firefox fork | Browsers |
 
 Adding a new app is a matter of adding one more entry to
-`crates/bellwether-core/src/catalog.rs` — see that file, it's a plain Rust
-list with comments.
+`crates/bellwether-core/src/catalog/community.rs` (or `my_apps.rs` for your
+own stuff) — see those files, they're plain Rust lists with comments.
+
+## Profiles
+
+Instead of listing app ids by hand every time, install a curated bundle:
+
+```bash
+bellwether profiles                      # see what's available
+bellwether install --profile standard    # everyday desktop use
+bellwether install --profile advanced    # standard + power tuning + creative tools
+bellwether install --profile server      # docker, ufw, fail2ban, monitoring
+```
+
+`--profile` also works on `remove` and `repair` (only touches apps that
+are actually installed). In the TUI, press `1`/`2`/`3` to load a profile's
+apps into your current selection, then `i` to install the lot.
 
 ## Install
 
