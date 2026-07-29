@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::io;
 
 use anyhow::Result;
@@ -18,7 +18,7 @@ use ratatui::widgets::{Block, Borders, Clear, List, ListItem, Paragraph};
 use ratatui::{Frame, Terminal};
 
 use bellwether_core::SystemInfo;
-use bellwether_core::{catalog, installer, AppDef};
+use bellwether_core::{catalog, find_profile, installer, AppDef};
 
 // Barnyard palette. Rgb keeps it consistent regardless of the user's
 // terminal color scheme, unlike the named ANSI colors.
@@ -41,6 +41,65 @@ enum ArmedAction {
     ConfirmRemove,
 }
 
+/// The four pens. Home/Advanced/Server mirror the profiles in
+/// bellwether-core; All is everything in the catalog, so nothing (like
+/// the snap-purge utility, or your own apps) ever becomes unreachable.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Tab {
+    Home,
+    Advanced,
+    Server,
+    All,
+}
+
+impl Tab {
+    fn all() -> [Tab; 4] {
+        [Tab::Home, Tab::Advanced, Tab::Server, Tab::All]
+    }
+
+    fn label(&self) -> &'static str {
+        match self {
+            Tab::Home => "Home",
+            Tab::Advanced => "Advanced",
+            Tab::Server => "Server",
+            Tab::All => "All",
+        }
+    }
+
+    fn profile_id(&self) -> Option<&'static str> {
+        match self {
+            Tab::Home => Some("home"),
+            Tab::Advanced => Some("advanced"),
+            Tab::Server => Some("server"),
+            Tab::All => None,
+        }
+    }
+
+    fn next(&self) -> Tab {
+        match self {
+            Tab::Home => Tab::Advanced,
+            Tab::Advanced => Tab::Server,
+            Tab::Server => Tab::All,
+            Tab::All => Tab::Home,
+        }
+    }
+}
+
+/// Apps to show for a given tab, preserving the catalog's own ordering.
+fn apps_for_tab(tab: Tab, full: &[&'static AppDef]) -> Vec<&'static AppDef> {
+    match tab.profile_id() {
+        Some(pid) => match find_profile(pid) {
+            Some(p) => full
+                .iter()
+                .copied()
+                .filter(|a| p.app_ids.contains(&a.id))
+                .collect(),
+            None => Vec::new(),
+        },
+        None => full.to_vec(),
+    }
+}
+
 pub fn run() -> Result<()> {
     enable_raw_mode()?;
     let mut stdout = io::stdout();
@@ -61,9 +120,28 @@ pub fn run() -> Result<()> {
     result
 }
 
+#[allow(clippy::too_many_arguments)]
+fn goto_tab(
+    new_tab: Tab,
+    full_apps: &[&'static AppDef],
+    tab: &mut Tab,
+    apps: &mut Vec<&'static AppDef>,
+    selected: &mut HashSet<usize>,
+    cursor: &mut usize,
+    log: &mut Vec<String>,
+) {
+    *tab = new_tab;
+    *apps = apps_for_tab(new_tab, full_apps);
+    selected.clear();
+    *cursor = 0;
+    log.push(format!("moved to the {} pen", new_tab.label()));
+}
+
 fn event_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> Result<()> {
     let sys = SystemInfo::detect();
-    let apps: Vec<&'static AppDef> = catalog();
+    let full_apps: Vec<&'static AppDef> = catalog();
+    let mut tab = Tab::Home;
+    let mut apps: Vec<&'static AppDef> = apps_for_tab(tab, &full_apps);
     let mut selected: HashSet<usize> = HashSet::new();
     let mut cursor: usize = 0;
     let mut log: Vec<String> = vec![format!("welcome to the yard — {}", sys.distro_summary())];
@@ -71,25 +149,39 @@ fn event_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> Result<(
     let mut working = false;
     let mut armed = ArmedAction::None;
 
-    log.push("scanning pens for what's already out to pasture...".to_string());
+    log.push("taking headcount across every pen...".to_string());
     terminal.draw(|f| {
-        rows = draw(f, &apps, &[], &selected, cursor, &log, &sys, working, armed);
+        rows = draw(
+            f,
+            tab,
+            &apps,
+            &HashMap::new(),
+            &selected,
+            cursor,
+            &log,
+            &sys,
+            working,
+            armed,
+        );
     })?;
-    let mut installed: Vec<bool> = apps
+    let mut installed: HashMap<&'static str, bool> = full_apps
         .iter()
-        .map(|a| installer::is_installed(a, &sys))
+        .map(|a| (a.id, installer::is_installed(a, &sys)))
         .collect();
-    let n_installed = installed.iter().filter(|b| **b).count();
+    let n_installed = installed.values().filter(|b| **b).count();
     log.push(format!(
-        "headcount done: {n_installed} of {} already on this rig",
-        apps.len()
+        "headcount done: {n_installed} of {} already in the barn",
+        full_apps.len()
     ));
-    log.push("space/click: pick · i: buy (install) · r: call the vet (repair) · x: send to pasture (remove) · a: round up the herd (select-all) · 1: Standard · 2: Advanced · 3: Server · q: leave the yard".to_string());
+    log.push(
+        "space/click: pick · i: bring in · r: call the vet · x: send to pasture · a: round up the herd · Tab/1-4: switch pens · q: leave the yard"
+            .to_string(),
+    );
 
     loop {
         terminal.draw(|f| {
             rows = draw(
-                f, &apps, &installed, &selected, cursor, &log, &sys, working, armed,
+                f, tab, &apps, &installed, &selected, cursor, &log, &sys, working, armed,
             );
         })?;
 
@@ -103,7 +195,7 @@ fn event_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> Result<(
                 let is_x = matches!(key.code, KeyCode::Char('x'));
                 if armed == ArmedAction::ConfirmRemove && !is_x {
                     armed = ArmedAction::None;
-                    log.push("remove cancelled.".to_string());
+                    log.push("removal cancelled.".to_string());
                 }
 
                 match key.code {
@@ -126,9 +218,53 @@ fn event_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> Result<(
                             selected = (0..apps.len()).collect();
                         }
                     }
-                    KeyCode::Char('1') => apply_profile("standard", &apps, &mut selected, &mut log),
-                    KeyCode::Char('2') => apply_profile("advanced", &apps, &mut selected, &mut log),
-                    KeyCode::Char('3') => apply_profile("server", &apps, &mut selected, &mut log),
+                    KeyCode::Tab => {
+                        goto_tab(
+                            tab.next(),
+                            &full_apps,
+                            &mut tab,
+                            &mut apps,
+                            &mut selected,
+                            &mut cursor,
+                            &mut log,
+                        );
+                    }
+                    KeyCode::Char('1') => goto_tab(
+                        Tab::Home,
+                        &full_apps,
+                        &mut tab,
+                        &mut apps,
+                        &mut selected,
+                        &mut cursor,
+                        &mut log,
+                    ),
+                    KeyCode::Char('2') => goto_tab(
+                        Tab::Advanced,
+                        &full_apps,
+                        &mut tab,
+                        &mut apps,
+                        &mut selected,
+                        &mut cursor,
+                        &mut log,
+                    ),
+                    KeyCode::Char('3') => goto_tab(
+                        Tab::Server,
+                        &full_apps,
+                        &mut tab,
+                        &mut apps,
+                        &mut selected,
+                        &mut cursor,
+                        &mut log,
+                    ),
+                    KeyCode::Char('4') => goto_tab(
+                        Tab::All,
+                        &full_apps,
+                        &mut tab,
+                        &mut apps,
+                        &mut selected,
+                        &mut cursor,
+                        &mut log,
+                    ),
                     KeyCode::Char('i') | KeyCode::Enter => {
                         if selected.is_empty() {
                             log.push("nothing picked — space to pick some stock first".into());
@@ -136,13 +272,14 @@ fn event_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> Result<(
                             working = true;
                             terminal.draw(|f| {
                                 rows = draw(
-                                    f, &apps, &installed, &selected, cursor, &log, &sys, working,
-                                    armed,
+                                    f, tab, &apps, &installed, &selected, cursor, &log, &sys,
+                                    working, armed,
                                 );
                             })?;
-                            install_selected(&apps, &selected, &sys, &mut log);
+                            bring_in_selected(&apps, &selected, &sys, &mut log);
                             for &idx in &selected {
-                                installed[idx] = installer::is_installed(apps[idx], &sys);
+                                let app = apps[idx];
+                                installed.insert(app.id, installer::is_installed(app, &sys));
                             }
                             working = false;
                         }
@@ -154,13 +291,14 @@ fn event_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> Result<(
                             working = true;
                             terminal.draw(|f| {
                                 rows = draw(
-                                    f, &apps, &installed, &selected, cursor, &log, &sys, working,
-                                    armed,
+                                    f, tab, &apps, &installed, &selected, cursor, &log, &sys,
+                                    working, armed,
                                 );
                             })?;
                             repair_selected(&apps, &selected, &sys, &mut log);
                             for &idx in &selected {
-                                installed[idx] = installer::is_installed(apps[idx], &sys);
+                                let app = apps[idx];
+                                installed.insert(app.id, installer::is_installed(app, &sys));
                             }
                             working = false;
                         }
@@ -173,13 +311,14 @@ fn event_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> Result<(
                             working = true;
                             terminal.draw(|f| {
                                 rows = draw(
-                                    f, &apps, &installed, &selected, cursor, &log, &sys, working,
-                                    armed,
+                                    f, tab, &apps, &installed, &selected, cursor, &log, &sys,
+                                    working, armed,
                                 );
                             })?;
                             remove_selected(&apps, &selected, &installed, &sys, &mut log);
                             for &idx in &selected {
-                                installed[idx] = installer::is_installed(apps[idx], &sys);
+                                let app = apps[idx];
+                                installed.insert(app.id, installer::is_installed(app, &sys));
                             }
                             working = false;
                         } else {
@@ -218,33 +357,7 @@ fn toggle(selected: &mut HashSet<usize>, idx: usize) {
     }
 }
 
-/// Replaces the current selection with a named profile's apps (matched by
-/// position in `apps`, since `catalog()` is the same order every call).
-fn apply_profile(
-    profile_id: &str,
-    apps: &[&'static AppDef],
-    selected: &mut HashSet<usize>,
-    log: &mut Vec<String>,
-) {
-    match bellwether_core::find_profile(profile_id) {
-        Some(p) => {
-            selected.clear();
-            for (i, app) in apps.iter().enumerate() {
-                if p.app_ids.contains(&app.id) {
-                    selected.insert(i);
-                }
-            }
-            log.push(format!(
-                "picked the '{}' profile ({} apps) — press i to buy the lot",
-                p.name,
-                p.app_ids.len()
-            ));
-        }
-        None => log.push(format!("no such profile: {profile_id}")),
-    }
-}
-
-fn install_selected(
+fn bring_in_selected(
     apps: &[&'static AppDef],
     selected: &HashSet<usize>,
     sys: &SystemInfo,
@@ -254,11 +367,11 @@ fn install_selected(
     ids.sort_unstable();
     for idx in ids {
         let app = apps[idx];
-        log.push(format!("buying {}...", app.name));
+        log.push(format!("bringing {} in from the field...", app.name));
         match installer::install_app(app, sys) {
             Ok(outcome) => {
                 if let Some(m) = outcome.method_used {
-                    log.push(format!("  sold! via {}", m.label()));
+                    log.push(format!("  in the barn now, via {}", m.label()));
                 }
                 for note in outcome.post_install_notes {
                     log.push(format!("  - {note}"));
@@ -267,7 +380,7 @@ fn install_selected(
             Err(e) => log.push(format!("  FAILED: {e}")),
         }
     }
-    log.push("done at the counter.".to_string());
+    log.push("all brought in.".to_string());
 }
 
 fn repair_selected(
@@ -299,7 +412,7 @@ fn repair_selected(
 fn remove_selected(
     apps: &[&'static AppDef],
     selected: &HashSet<usize>,
-    installed: &[bool],
+    installed: &HashMap<&'static str, bool>,
     sys: &SystemInfo,
     log: &mut Vec<String>,
 ) {
@@ -307,8 +420,11 @@ fn remove_selected(
     ids.sort_unstable();
     for idx in ids {
         let app = apps[idx];
-        if !installed[idx] {
-            log.push(format!("{} isn't installed, nothing to send off", app.name));
+        if !installed.get(app.id).copied().unwrap_or(false) {
+            log.push(format!(
+                "{} isn't in the barn, nothing to send off",
+                app.name
+            ));
             continue;
         }
         log.push(format!("sending {} to pasture...", app.name));
@@ -323,8 +439,9 @@ fn remove_selected(
 #[allow(clippy::too_many_arguments)]
 fn draw(
     f: &mut Frame<CrosstermBackend<io::Stdout>>,
+    tab: Tab,
     apps: &[&'static AppDef],
-    installed: &[bool],
+    installed: &HashMap<&'static str, bool>,
     selected: &HashSet<usize>,
     cursor: usize,
     log: &[String],
@@ -337,7 +454,8 @@ fn draw(
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Length(3),
-            Constraint::Min(8),
+            Constraint::Length(3),
+            Constraint::Min(6),
             Constraint::Length(7),
         ])
         .split(size);
@@ -348,11 +466,11 @@ fn draw(
             Style::default().fg(HAY).add_modifier(Modifier::BOLD),
         ),
         Span::styled(
-            "  —  a Bellwether livestock & software exchange  —  ",
+            "  —  herding your Linux flock into shape  —  ",
             Style::default().fg(DUSK),
         ),
         Span::raw(format!(
-            "{}  —  space: pick · i: buy · r: vet · x: pasture · a: round-up · 1/2/3: profiles · q: leave",
+            "{}  —  space: pick · i: bring in · r: vet · x: pasture",
             sys.distro_summary()
         )),
     ]))
@@ -363,7 +481,32 @@ fn draw(
     );
     f.render_widget(header, chunks[0]);
 
-    let list_area = chunks[1];
+    let mut tab_spans = Vec::new();
+    for t in Tab::all() {
+        let active = t == tab;
+        let style = if active {
+            Style::default()
+                .fg(Color::Black)
+                .bg(HAY)
+                .add_modifier(Modifier::BOLD)
+        } else {
+            Style::default().fg(DUSK)
+        };
+        tab_spans.push(Span::styled(format!(" {} ", t.label()), style));
+        tab_spans.push(Span::raw(" "));
+    }
+    tab_spans.push(Span::styled(
+        "  (Tab or 1-4 to switch)",
+        Style::default().fg(DUSK),
+    ));
+    let tab_bar = Paragraph::new(Line::from(tab_spans)).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(BARNWOOD)),
+    );
+    f.render_widget(tab_bar, chunks[1]);
+
+    let list_area = chunks[2];
     let mut rows = Vec::with_capacity(apps.len());
     let items: Vec<ListItem> = apps
         .iter()
@@ -371,11 +514,11 @@ fn draw(
         .map(|(i, app)| {
             let checked = selected.contains(&i);
             let marker = if checked { "[x]" } else { "[ ]" };
-            let is_installed = installed.get(i).copied().unwrap_or(false);
+            let is_installed = installed.get(app.id).copied().unwrap_or(false);
             let (tag, tag_color) = if is_installed {
-                ("SOLD    ", PASTURE_GREEN)
+                ("IN THE BARN  ", PASTURE_GREEN)
             } else {
-                ("FOR SALE", DUSK)
+                ("OUT TO PASTURE", DUSK)
             };
             let base_style = if i == cursor {
                 Style::default().add_modifier(Modifier::REVERSED)
@@ -408,7 +551,7 @@ fn draw(
         .collect();
     let list = List::new(items).block(
         Block::default()
-            .title("The Pens")
+            .title(format!("The {} Pen", tab.label()))
             .borders(Borders::ALL)
             .border_style(Style::default().fg(BARNWOOD)),
     );
@@ -434,7 +577,7 @@ fn draw(
             .borders(Borders::ALL)
             .border_style(Style::default().fg(border_color)),
     );
-    f.render_widget(log_widget, chunks[2]);
+    f.render_widget(log_widget, chunks[3]);
 
     if working {
         let popup = Rect {

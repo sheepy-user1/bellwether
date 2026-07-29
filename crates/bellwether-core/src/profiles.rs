@@ -13,15 +13,26 @@ pub struct Profile {
 
 pub const PROFILES: &[Profile] = &[
     Profile {
-        id: "standard",
-        name: "Standard Client",
-        description: "Everyday desktop use: a resource monitor, a browser, your games, and a system-info splash.",
-        app_ids: &["btop", "fastfetch", "zen-browser", "steam"],
+        id: "home",
+        name: "Home",
+        description: "Everyday desktop use: monitoring, power tuning, your 3D printer, browser, games, and a friendlier shell.",
+        app_ids: &[
+            "btop",
+            "fastfetch",
+            "powertop",
+            "cpupower",
+            "auto-cpufreq",
+            "bambustudio",
+            "steam",
+            "zen-browser",
+            "fish",
+            "starship",
+        ],
     },
     Profile {
         id: "advanced",
-        name: "Advanced Client",
-        description: "Standard, plus power tuning, creative tools, and a fuller shell setup for a hands-on desktop.",
+        name: "Advanced",
+        description: "Home, plus a fuller terminal toolkit for hands-on tinkering.",
         app_ids: &[
             "btop",
             "fastfetch",

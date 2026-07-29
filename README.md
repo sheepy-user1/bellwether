@@ -59,8 +59,8 @@ Instead of listing app ids by hand every time, install a curated bundle:
 
 ```bash
 bellwether profiles                      # see what's available
-bellwether install --profile standard    # everyday desktop use
-bellwether install --profile advanced    # standard + power tuning + creative tools
+bellwether install --profile home         # everyday desktop use
+bellwether install --profile advanced    # home + a fuller terminal toolkit
 bellwether install --profile server      # docker, ufw, fail2ban, monitoring
 ```
 
@@ -104,13 +104,20 @@ bellwether tui                 # Drover's Yard — the interactive checklist
 
 `bellwether tui` opens **Drover's Yard** — a barnyard-themed checklist
 (a drover is the person who drives livestock to market, following the
-bellwether). It takes a headcount of your system on startup so every app
-is tagged `SOLD` (installed) or `FOR SALE` (not), then:
+bellwether), organized into four pens:
+
+- **Home** — everyday desktop use (monitoring, power tuning, Bambu Studio, browser, games, fish/starship)
+- **Advanced** — Home, plus a fuller terminal toolkit
+- **Server** — headless-box essentials (Docker, ufw, fail2ban, terminal tools)
+- **All** — the entire catalog, including one-off system utilities like the snap-purge action and anything in `my_apps.rs`
+
+It takes a headcount of your system on startup so every app is tagged
+`IN THE BARN` (installed) or `OUT TO PASTURE` (not), then:
 
 - `space` / mouse click — pick apps
-- `a` — round up the herd (select/deselect all)
-- `1` / `2` / `3` — load the Standard / Advanced / Server profile into your pick
-- `i` — buy (install) what's picked
+- `a` — round up the herd (select/deselect all in the current pen)
+- `Tab` or `1`/`2`/`3`/`4` — switch pens (Home / Advanced / Server / All)
+- `i` — bring in (install) what's picked
 - `r` — call the vet (repair/reinstall) what's picked
 - `x` — send to pasture (remove) what's picked — asks for a second `x` to confirm
 - `q` — leave the yard
