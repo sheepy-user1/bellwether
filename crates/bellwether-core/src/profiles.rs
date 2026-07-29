@@ -85,3 +85,53 @@ pub fn profile_apps(profile: &Profile) -> Vec<&'static AppDef> {
         .filter_map(|id| catalog::find(id))
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn profile_ids_are_unique() {
+        let mut ids: Vec<&str> = PROFILES.iter().map(|p| p.id).collect();
+        ids.sort_unstable();
+        let mut deduped = ids.clone();
+        deduped.dedup();
+        assert_eq!(ids.len(), deduped.len(), "duplicate profile id");
+    }
+
+    #[test]
+    fn every_profile_app_id_actually_exists_in_the_catalog() {
+        // Guards against a typo'd app id in a profile's app_ids list —
+        // profile_apps() would otherwise just silently drop it.
+        for p in PROFILES {
+            for id in p.app_ids {
+                assert!(
+                    crate::catalog::find(id).is_some(),
+                    "profile '{}' references unknown app id '{}'",
+                    p.id,
+                    id
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn find_profile_looks_up_by_id() {
+        assert!(find_profile("home").is_some());
+        assert!(find_profile("advanced").is_some());
+        assert!(find_profile("server").is_some());
+        assert!(find_profile("does-not-exist").is_none());
+    }
+
+    #[test]
+    fn advanced_profile_is_a_superset_of_home() {
+        let home = find_profile("home").unwrap();
+        let advanced = find_profile("advanced").unwrap();
+        for id in home.app_ids {
+            assert!(
+                advanced.app_ids.contains(id),
+                "advanced profile is missing '{id}' from home"
+            );
+        }
+    }
+}

@@ -288,3 +288,114 @@ pub fn repair_app(app: &AppDef, sys: &SystemInfo) -> BwResult<InstallOutcome> {
         post_install_notes: notes,
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::model::{Category, DirectInstall, DirectKind, InstallSpec};
+
+    fn sys(
+        has_apt: bool,
+        has_pacman: bool,
+        has_dnf: bool,
+        has_flatpak: bool,
+        aur_helper: Option<&'static str>,
+    ) -> SystemInfo {
+        SystemInfo {
+            has_apt,
+            has_pacman,
+            has_dnf,
+            has_flatpak,
+            aur_helper,
+            is_root: false,
+        }
+    }
+
+    fn app(install: InstallSpec) -> AppDef {
+        AppDef {
+            id: "test-app",
+            name: "Test App",
+            category: Category::Utilities,
+            description: "",
+            install,
+            post_install: &[],
+            bin_name: None,
+        }
+    }
+
+    #[test]
+    fn prefers_native_when_available() {
+        let a = app(InstallSpec {
+            apt: Some("pkg"),
+            flatpak: Some("org.pkg"),
+            preference: &[InstallMethod::Native, InstallMethod::Flatpak],
+            ..Default::default()
+        });
+        let s = sys(true, false, false, true, None);
+        assert_eq!(choose_method(&a, &s), Some(InstallMethod::Native));
+    }
+
+    #[test]
+    fn falls_back_to_flatpak_when_no_native_package_defined() {
+        let a = app(InstallSpec {
+            flatpak: Some("org.pkg"),
+            preference: &[InstallMethod::Native, InstallMethod::Flatpak],
+            ..Default::default()
+        });
+        // apt is present on the system, but this app doesn't define an apt
+        // package — Native isn't "defined" for it, so it should skip to flatpak.
+        let s = sys(true, false, false, true, None);
+        assert_eq!(choose_method(&a, &s), Some(InstallMethod::Flatpak));
+    }
+
+    #[test]
+    fn aur_requires_a_helper_to_be_present() {
+        let a = app(InstallSpec {
+            aur: Some("pkg-bin"),
+            preference: &[InstallMethod::Aur],
+            ..Default::default()
+        });
+        let no_helper = sys(false, true, false, false, None);
+        assert_eq!(choose_method(&a, &no_helper), None);
+
+        let with_helper = sys(false, true, false, false, Some("yay"));
+        assert_eq!(choose_method(&a, &with_helper), Some(InstallMethod::Aur));
+    }
+
+    #[test]
+    fn script_method_needs_no_package_manager_at_all() {
+        let a = app(InstallSpec {
+            script: Some("echo hi"),
+            preference: &[InstallMethod::Script],
+            ..Default::default()
+        });
+        let bare_system = sys(false, false, false, false, None);
+        assert_eq!(choose_method(&a, &bare_system), Some(InstallMethod::Script));
+    }
+
+    #[test]
+    fn no_method_when_nothing_matches_this_system() {
+        let a = app(InstallSpec {
+            dnf: Some("pkg"), // only defines dnf...
+            preference: &[InstallMethod::Native],
+            ..Default::default()
+        });
+        let s = sys(true, false, false, false, None); // ...but this system only has apt
+        assert_eq!(choose_method(&a, &s), None);
+    }
+
+    #[test]
+    fn empty_preference_falls_back_to_default_order() {
+        let a = app(InstallSpec {
+            direct: Some(DirectInstall {
+                url: "https://example.com/x",
+                kind: DirectKind::AppImage,
+                install_name: "x",
+            }),
+            preference: &[], // empty -> DEFAULT_PREFERENCE should kick in
+            ..Default::default()
+        });
+        let s = sys(false, false, false, false, None);
+        assert_eq!(choose_method(&a, &s), Some(InstallMethod::Direct));
+    }
+}
