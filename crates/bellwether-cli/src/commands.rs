@@ -10,6 +10,7 @@ pub fn list() {
         Category::Shell,
         Category::Server,
         Category::Utilities,
+        Category::Debloat,
         Category::Creative,
         Category::Gaming,
         Category::Browser,

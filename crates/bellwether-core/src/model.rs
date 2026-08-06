@@ -6,6 +6,8 @@ pub enum Category {
     Shell,
     Server,
     Utilities,
+    /// Cleanup / debloat actions — pulled in from the Bullshit project.
+    Debloat,
     Creative,
     Gaming,
     Browser,
@@ -21,6 +23,7 @@ impl Category {
             Category::Shell => "Shell & Terminal",
             Category::Server => "Server",
             Category::Utilities => "System Utilities",
+            Category::Debloat => "The Pile",
             Category::Creative => "Creative / 3D Printing",
             Category::Gaming => "Gaming",
             Category::Browser => "Browsers",

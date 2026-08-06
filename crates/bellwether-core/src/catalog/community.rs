@@ -440,11 +440,125 @@ pub const COMMUNITY_APPS: &[AppDef] = &[
         post_install: &[
             PostInstallStep::Note("snapd removed; apt is pinned to refuse reinstalling it as a dependency of anything else"),
         ],
-        // Reused as a presence check: bin_name "snap" means the SOLD / FOR
-        // SALE tag actually reports whether snap is currently present,
-        // rather than whether this "app" (an action, not a package) has
-        // been run before.
+        // Reused as a presence check: bin_name "snap" means the IN THE
+        // BARN / OUT TO PASTURE tag actually reports whether snap is
+        // currently present, rather than whether this "app" (an action,
+        // not a package) has been run before.
         bin_name: Some("snap"),
+    },
+    // ---------------------------------------------------------------
+    // The Pile — debloat actions ported over from the Bullshit project.
+    // Each of these is a Script action, same pattern as purge-snap above:
+    // no package to fetch, just something to shovel out. Grade noted in
+    // the description (A = safe as houses, B = know what you're losing).
+    // ---------------------------------------------------------------
+    AppDef {
+        id: "purge-apport",
+        name: "Apport (crash reporting)",
+        category: Category::Debloat,
+        description: "[Grade A] Catches app crashes and offers to send reports to Ubuntu's servers. Most people never see the popup — it just burns disk in /var/crash and a bit of CPU on every crash. Ubuntu/Debian only.",
+        install: InstallSpec {
+            apt: None,
+            pacman: None,
+            dnf: None,
+            aur: None,
+            flatpak: None,
+            direct: None,
+            script: Some(PURGE_APPORT_SCRIPT),
+            preference: &[InstallMethod::Script],
+        },
+        post_install: &[PostInstallStep::Note("apport disabled, removed, and /var/crash cleared")],
+        bin_name: Some("apport-bug"),
+    },
+    AppDef {
+        id: "purge-whoopsie",
+        name: "Whoopsie & ubuntu-report",
+        category: Category::Debloat,
+        description: "[Grade A] Whoopsie uploads Apport's crash reports to Canonical; ubuntu-report sends anonymised install stats home at first boot. Neither does anything for you day to day. Ubuntu only.",
+        install: InstallSpec {
+            apt: None,
+            pacman: None,
+            dnf: None,
+            aur: None,
+            flatpak: None,
+            direct: None,
+            script: Some(PURGE_WHOOPSIE_SCRIPT),
+            preference: &[InstallMethod::Script],
+        },
+        post_install: &[],
+        bin_name: Some("whoopsie"),
+    },
+    AppDef {
+        id: "trim-journal",
+        name: "Trim the systemd journal",
+        category: Category::Debloat,
+        description: "[Grade A] journald logs kernel and service messages to /var/log/journal and can quietly grow to gigabytes on a long-running box. Trims it down to the last 7 days.",
+        install: InstallSpec {
+            apt: None,
+            pacman: None,
+            dnf: None,
+            aur: None,
+            flatpak: None,
+            direct: None,
+            script: Some("journalctl --vacuum-time=7d"),
+            preference: &[InstallMethod::Script],
+        },
+        post_install: &[],
+        bin_name: None,
+    },
+    AppDef {
+        id: "clear-thumbnail-cache",
+        name: "Clear thumbnail cache",
+        category: Category::Debloat,
+        description: "[Grade A] Your file manager caches a thumbnail for every image and video you've ever browsed in ~/.cache/thumbnails. It regenerates automatically — free space, zero real downside.",
+        install: InstallSpec {
+            apt: None,
+            pacman: None,
+            dnf: None,
+            aur: None,
+            flatpak: None,
+            direct: None,
+            script: Some(CLEAR_THUMBNAIL_CACHE_SCRIPT),
+            preference: &[InstallMethod::Script],
+        },
+        post_install: &[],
+        bin_name: None,
+    },
+    AppDef {
+        id: "empty-trash",
+        name: "Empty the trash bin",
+        category: Category::Debloat,
+        description: "[Grade A] Files 'deleted' from a graphical file manager usually just move to ~/.local/share/Trash and sit there indefinitely instead of actually being freed.",
+        install: InstallSpec {
+            apt: None,
+            pacman: None,
+            dnf: None,
+            aur: None,
+            flatpak: None,
+            direct: None,
+            script: Some(EMPTY_TRASH_SCRIPT),
+            preference: &[InstallMethod::Script],
+        },
+        post_install: &[],
+        bin_name: None,
+    },
+    AppDef {
+        id: "docker-prune",
+        name: "Prune dangling Docker images & volumes",
+        category: Category::Debloat,
+        description: "[Grade B] Every rebuild leaves old image layers behind as 'dangling', and stopped containers keep volumes around until cleaned up. On a dev box this quietly eats tens of gigabytes. Know what you're losing — this removes anything not currently referenced by a running container.",
+        install: InstallSpec {
+            apt: None,
+            pacman: None,
+            dnf: None,
+            aur: None,
+            flatpak: None,
+            direct: None,
+            script: Some("command -v docker >/dev/null 2>&1 && docker system prune -af --volumes || echo \"docker not found — nothing to prune\""),
+            preference: &[InstallMethod::Script],
+        },
+        post_install: &[],
+        bin_name: Some("docker"),
     },
 ];
 
@@ -544,3 +658,28 @@ fi"#;
 // Official Starship installer, run non-interactively. Used only as a
 // fallback when there's no native package (e.g. apt/dnf don't carry it).
 const STARSHIP_INSTALL_SCRIPT: &str = r#"curl -sS https://starship.rs/install.sh | sh -s -- -y"#;
+
+const PURGE_APPORT_SCRIPT: &str = r#"if command -v apt-get >/dev/null 2>&1; then
+  systemctl disable --now apport.service 2>/dev/null || true
+  apt-get purge -y apport apport-symptoms
+  rm -rf /var/crash
+else
+  echo "apport is Ubuntu/Debian-specific — nothing to do here"
+fi"#;
+
+const PURGE_WHOOPSIE_SCRIPT: &str = r#"if command -v apt-get >/dev/null 2>&1; then
+  apt-get purge -y whoopsie ubuntu-report
+else
+  echo "whoopsie is Ubuntu-specific — nothing to do here"
+fi"#;
+
+// These two touch the *invoking user's* home directory, not root's — same
+// $SUDO_USER trick used for the docker group setup above, since bellwether
+// always runs Script actions with root privileges.
+const CLEAR_THUMBNAIL_CACHE_SCRIPT: &str = r#"target_home="${SUDO_USER:+/home/$SUDO_USER}"
+target_home="${target_home:-$HOME}"
+rm -rf "$target_home/.cache/thumbnails/"*"#;
+
+const EMPTY_TRASH_SCRIPT: &str = r#"target_home="${SUDO_USER:+/home/$SUDO_USER}"
+target_home="${target_home:-$HOME}"
+rm -rf "$target_home/.local/share/Trash/"*"#;

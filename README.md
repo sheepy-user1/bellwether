@@ -45,9 +45,21 @@ line the same way.
 | `ufw` | firewall front-end | Server |
 | `fail2ban` | bans IPs after repeated bad logins | Server |
 | `purge-snap` | removes snapd and pins apt against it | System Utilities |
+| `purge-apport` | removes Ubuntu's crash-reporting daemon | The Pile |
+| `purge-whoopsie` | removes Ubuntu's telemetry uploader | The Pile |
+| `trim-journal` | trims the systemd journal to 7 days | The Pile |
+| `clear-thumbnail-cache` | wipes the file-manager thumbnail cache | The Pile |
+| `empty-trash` | empties the desktop trash bin | The Pile |
+| `docker-prune` | prunes dangling Docker images & volumes | The Pile |
 | `bambustudio` | 3D-printer slicer | Creative |
 | `steam` | game store/launcher | Gaming |
 | `zen-browser` | privacy-focused Firefox fork | Browsers |
+
+**The Pile** is a handful of debloat/cleanup actions ported over from a
+sister project ([Bullshit](https://github.com/sheepy-user1/bs)) — each one
+runs as a `Script` action rather than installing anything. They're
+reachable from the **All** pen in the TUI; they're not in any profile by
+default since they're maintenance actions, not everyday installs.
 
 Adding a new app is a matter of adding one more entry to
 `crates/bellwether-core/src/catalog/community.rs` (or `my_apps.rs` for your
