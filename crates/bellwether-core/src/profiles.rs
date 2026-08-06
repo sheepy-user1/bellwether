@@ -22,6 +22,7 @@ pub const PROFILES: &[Profile] = &[
             "powertop",
             "cpupower",
             "auto-cpufreq",
+            "zram",
             "bambustudio",
             "steam",
             "zen-browser",
@@ -39,6 +40,7 @@ pub const PROFILES: &[Profile] = &[
             "powertop",
             "cpupower",
             "auto-cpufreq",
+            "zram",
             "bambustudio",
             "steam",
             "zen-browser",
@@ -58,6 +60,7 @@ pub const PROFILES: &[Profile] = &[
             "Headless-box essentials: containers, firewall, intrusion prevention, monitoring, and a solid terminal toolkit.",
         app_ids: &[
             "btop",
+            "zram",
             "docker",
             "docker-compose",
             "ufw",

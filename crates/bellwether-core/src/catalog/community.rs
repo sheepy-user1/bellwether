@@ -105,6 +105,27 @@ pub const COMMUNITY_APPS: &[AppDef] = &[
         ],
         bin_name: None,
     },
+    AppDef {
+        id: "zram",
+        name: "zram swap",
+        category: Category::Power,
+        description: "Compressed RAM-backed swap instead of a disk swap file/partition — much faster, and easier on an SSD's write cycles. Configures a device using ~half your RAM with zstd compression.",
+        install: InstallSpec {
+            apt: Some("zram-tools"),
+            pacman: Some("zram-generator"),
+            dnf: Some("zram-generator"),
+            aur: None,
+            flatpak: None,
+            direct: None,
+            script: None,
+            preference: &[InstallMethod::Native],
+        },
+        post_install: &[
+            PostInstallStep::RootShell(ZRAM_CONFIG_SCRIPT),
+            PostInstallStep::Note("if you have an existing disk swap partition or swapfile you want zram to fully replace, that's a manual step — turn it off with 'sudo swapoff' and remove/comment its /etc/fstab entry yourself once you're happy zram is working"),
+        ],
+        bin_name: None,
+    },
     // ---------------------------------------------------------------
     // Creative / 3D printing
     // ---------------------------------------------------------------
@@ -683,3 +704,24 @@ rm -rf "$target_home/.cache/thumbnails/"*"#;
 const EMPTY_TRASH_SCRIPT: &str = r#"target_home="${SUDO_USER:+/home/$SUDO_USER}"
 target_home="${target_home:-$HOME}"
 rm -rf "$target_home/.local/share/Trash/"*"#;
+
+// Configures whichever zram package actually landed. zram-tools (apt) and
+// zram-generator (pacman/dnf) use completely different config mechanisms,
+// so this branches on which one is actually present rather than assuming.
+const ZRAM_CONFIG_SCRIPT: &str = r#"if [ -f /etc/default/zramswap ]; then
+  sed -i 's/^#\?PERCENT=.*/PERCENT=50/' /etc/default/zramswap
+  grep -q '^PERCENT=' /etc/default/zramswap || echo 'PERCENT=50' >> /etc/default/zramswap
+  sed -i 's/^#\?ALGO=.*/ALGO=zstd/' /etc/default/zramswap
+  grep -q '^ALGO=' /etc/default/zramswap || echo 'ALGO=zstd' >> /etc/default/zramswap
+  systemctl enable --now zramswap.service
+elif command -v zram-generator >/dev/null 2>&1 || [ -d /usr/lib/systemd/zram-generator.conf.d ] || command -v pacman >/dev/null 2>&1 || command -v dnf >/dev/null 2>&1; then
+  cat > /etc/systemd/zram-generator.conf << 'EOF'
+[zram0]
+zram-size = ram / 2
+compression-algorithm = zstd
+EOF
+  systemctl daemon-reload
+  systemctl start systemd-zram-setup@zram0.service 2>/dev/null || true
+else
+  echo "couldn't detect zram-tools or zram-generator config style — check your package manager's docs"
+fi"#;

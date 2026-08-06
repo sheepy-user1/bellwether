@@ -32,6 +32,7 @@ line the same way.
 | `powertop` | power usage diagnostics + auto-tune | Power |
 | `cpupower` | CPU frequency governor | Power |
 | `auto-cpufreq` | automatic CPU speed/power optimizer | Power |
+| `zram` | compressed RAM swap instead of disk swap | Power |
 | `fish` | friendly interactive shell | Shell & Terminal |
 | `starship` | fast, minimal shell prompt | Shell & Terminal |
 | `tmux` | terminal multiplexer | Shell & Terminal |
