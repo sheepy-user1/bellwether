@@ -9,6 +9,7 @@ pub mod installer;
 pub mod model;
 pub mod profiles;
 pub mod sysinfo;
+pub mod temp;
 
 pub use catalog::{catalog, find};
 pub use error::{BwError, BwResult};

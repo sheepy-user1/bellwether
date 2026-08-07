@@ -6,6 +6,15 @@ use clap::Parser;
 use cli::{Cli, Commands};
 
 fn main() -> anyhow::Result<()> {
+    let cleared = bellwether_core::temp::cleanup_expired();
+    if !cleared.is_empty() {
+        eprintln!(
+            "(cleared out {} aged-out temp install(s): {})",
+            cleared.len(),
+            cleared.join(", ")
+        );
+    }
+
     let cli = Cli::parse();
 
     match cli.command {
@@ -22,6 +31,8 @@ fn main() -> anyhow::Result<()> {
         Some(Commands::Repair { ids, all, profile }) => {
             commands::repair(&ids, all, profile.as_deref())?
         }
+        Some(Commands::Temp { ids }) => commands::temp(&ids)?,
+        Some(Commands::Promote { ids, gui }) => commands::promote(&ids, gui)?,
         Some(Commands::Tui) | None => tui::run()?,
     }
 

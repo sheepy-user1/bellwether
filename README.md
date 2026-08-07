@@ -111,6 +111,8 @@ bellwether install --all       # install everything
 bellwether repair btop         # reinstall + force-reapply config (fixes drift/breakage)
 bellwether remove steam        # uninstall specific apps
 bellwether tui                 # Drover's Yard — the interactive checklist
+bellwether temp my-tool        # try a Direct-install app without committing to it
+bellwether promote my-tool     # ...and make it a proper install once you are
 ```
 
 ### Drover's Yard (the TUI)
@@ -161,6 +163,31 @@ to whatever you most recently tagged, as long as every release attaches
 an asset with that exact filename. Set up your app's own release workflow
 the same way `.github/workflows/release.yml` does it here, and it just
 works — no need to touch bellwether again when you ship v2.
+
+### Trying it out before it's "proper"
+
+You don't have to add it to `my_apps.rs` and commit to it right away.
+Once an entry exists there (even mid-development, pointed at a real
+release), you can take it for a spin without cluttering `~/.local/bin` or
+your app launcher:
+
+```bash
+bellwether temp my-tool       # downloads to ~/Downloads/bellwether-temp/my-tool/
+                               # no root, nothing touches the system
+
+# ...try it, run it straight from that folder...
+
+bellwether promote my-tool          # happy with it? moves to ~/.local/bin +
+bellwether promote my-tool --gui    # adds a .desktop entry so app search finds it
+                                     # (use --gui if it's graphical, not a CLI/TUI tool)
+```
+
+Anything left in the temp folder for more than ~48h gets swept
+automatically the next time you run any `bellwether` command — override
+the window with `BELLWETHER_TEMP_TTL_HOURS=6 bellwether temp my-tool`.
+Temp installs only work for apps with a `direct` spec (AppImage, tarball,
+or plain binary) — not apt/pacman/flatpak packages, since those register
+with the system rather than existing as a standalone file.
 
 ## Adding a community app to the catalog
 

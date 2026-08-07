@@ -59,4 +59,21 @@ pub enum Commands {
     },
     /// Launch the interactive terminal UI (checklist + mouse clicks).
     Tui,
+    /// Download a Direct-install app into a temporary holding area
+    /// (~/Downloads/bellwether-temp/<id>) instead of installing it
+    /// properly. Auto-clears after ~48h (override with
+    /// $BELLWETHER_TEMP_TTL_HOURS) unless you `promote` it first.
+    Temp {
+        /// App ids to temp-install, e.g. `bellwether temp my-tool`
+        ids: Vec<String>,
+    },
+    /// Turn a temp install into a proper one: moves it to ~/.local/bin
+    /// and adds a desktop-launcher entry so app search can find it.
+    Promote {
+        /// App ids to promote, e.g. `bellwether promote my-tool`
+        ids: Vec<String>,
+        /// This is a graphical app — launch it directly instead of via a terminal.
+        #[arg(long)]
+        gui: bool,
+    },
 }

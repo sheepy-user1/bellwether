@@ -243,3 +243,49 @@ pub fn repair(ids: &[String], all: bool, profile: Option<&str>) -> Result<()> {
     println!("\nAll done.");
     Ok(())
 }
+
+pub fn temp(ids: &[String]) -> Result<()> {
+    if ids.is_empty() {
+        eprintln!("usage: bellwether temp <id> [<id> ...]");
+        return Ok(());
+    }
+    for id in ids {
+        let Some(app) = bellwether_core::find(id) else {
+            eprintln!("warning: no app with id '{id}' in the catalog (see `bellwether list`)");
+            continue;
+        };
+        println!("==> temp-installing {} ({})", app.name, app.id);
+        match bellwether_core::temp::install_temp(app) {
+            Ok(path) => println!(
+                "    ready at {} — will auto-clear in ~48h unless you run \
+                 `bellwether promote {}`",
+                path.display(),
+                app.id
+            ),
+            Err(e) => eprintln!("    FAILED: {e}"),
+        }
+    }
+    Ok(())
+}
+
+pub fn promote(ids: &[String], gui: bool) -> Result<()> {
+    if ids.is_empty() {
+        eprintln!("usage: bellwether promote <id> [<id> ...] [--gui]");
+        return Ok(());
+    }
+    for id in ids {
+        let Some(app) = bellwether_core::find(id) else {
+            eprintln!("warning: no app with id '{id}' in the catalog (see `bellwether list`)");
+            continue;
+        };
+        match bellwether_core::temp::promote(app, gui) {
+            Ok(path) => println!(
+                "{} promoted — now on your PATH ({}), and in your app launcher's search",
+                app.id,
+                path.display()
+            ),
+            Err(e) => eprintln!("FAILED: {e}"),
+        }
+    }
+    Ok(())
+}
